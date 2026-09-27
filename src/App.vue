@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { RouterView, useRoute } from 'vue-router'
+import UpdateNotice from './components/UpdateNotice.vue'
 import { saveSettings, settings } from './stores/diary'
 saveSettings()
 const route=useRoute()
 </script>
 <template>
  <div class="app-shell">
+  <UpdateNotice />
   <main>
    <RouterView v-slot="{ Component, route: currentRoute }">
     <Transition name="page-fade" mode="out-in">
