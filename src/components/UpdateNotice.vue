@@ -37,7 +37,7 @@ function update() {
 </template>
 
 <style scoped>
-.update-notice { position: sticky; top: 0; z-index: 40; padding: calc(14px + env(safe-area-inset-top)) 20px 14px; background: #edf4ef; color: var(--forest); border-bottom: 1px solid var(--line); }
+.update-notice { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 40; padding: 14px 20px; background: #edf4ef; color: var(--forest); border-bottom: 1px solid var(--line); }
 .update-notice strong { font-size: .88rem; }
 .update-notice p { margin: 6px 0 10px; font-size: .76rem; line-height: 1.6; }
 .update-actions { display: flex; justify-content: flex-end; gap: 10px; }
