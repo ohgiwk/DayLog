@@ -51,3 +51,6 @@ main {
     min-height: 100dvh;
   }
 }
+
+.tabbar { padding-left: 6px; padding-right: 6px; }
+.tabbar a { min-width: 0; flex: 1; }
