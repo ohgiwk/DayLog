@@ -1,0 +1,125 @@
+/* Blue-to-green accents with white content panels. */
+:root {
+  --gradient-sky: #9bd5ed;
+  --gradient-mint: #a7dfc1;
+  --gradient-hero: linear-gradient(125deg, var(--gradient-sky) 0%, #a8dedc 48%, var(--gradient-mint) 100%);
+  --gradient-card: linear-gradient(135deg, #d4ecf8 0%, #dbf1e4 100%);
+  --gradient-action: linear-gradient(120deg, #245e79 0%, #256449 100%);
+  --sub: #526e65;
+  --sage: #527b6b;
+}
+
+.home-hero {
+  background: var(--gradient-hero);
+}
+
+.home-hero .mist {
+  background: rgba(255, 255, 255, .3);
+}
+
+.home-hero .ripple {
+  border-color: rgba(36, 94, 121, .25);
+}
+
+.page-header {
+  margin: -32px -22px 24px;
+  padding: 48px 24px 28px;
+  background: var(--gradient-hero);
+  border-radius: 0 0 28px 28px;
+}
+
+.page-header > p:last-child {
+  margin-bottom: 0;
+}
+
+.home-hero .eyebrow,
+.page-header .eyebrow {
+  color: #365f57;
+}
+
+.today-card,
+.insight-card,
+.guess-card {
+  background: var(--surface);
+  border: 1px solid #c1ddd8;
+}
+
+.soft-card,
+.calendar-card,
+.stat-grid article,
+.entry-row,
+.settings-group button {
+  background: var(--surface);
+}
+
+
+.primary-button,
+.tabbar .write-tab span {
+  background: var(--gradient-action);
+  box-shadow: 0 8px 20px rgba(36, 94, 100, .2);
+}
+
+.tabbar {
+  background: linear-gradient(110deg, #e1f1fa, #def1e4);
+  border-top-color: #c0dcd6;
+}
+
+.tabbar a {
+  color: #5d756d;
+}
+
+.entry-row .entry-icon,
+.entry-thumb,
+.setting-icon,
+.tag-list span,
+.days .written a {
+  background: var(--gradient-card);
+}
+
+.bars i,
+.progress i {
+  background: linear-gradient(135deg, #539bb9, #65a980);
+}
+
+.journal-page {
+  background: linear-gradient(155deg, #bce1f2 0%, #d0ebda 35%, var(--paper) 80%);
+}
+
+.answer-grid button {
+  background: var(--surface);
+}
+
+.answer-grid button:active {
+  background: var(--gradient-card);
+}
+
+.memos-page .memo-toolbar,
+.memos-page .memo-row {
+  background: var(--surface);
+}
+
+.memos-page .memo-editor {
+  border-color: #b8d7cb;
+}
+
+/* Center SVG controls independently of font metrics. */
+.journal-header .icon-button,
+.month-nav button,
+.lightbox button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  line-height: 1;
+}
+.tabbar a:not(.write-tab) > span {
+  display: grid;
+  place-items: center;
+  height: 30px;
+}
+.tabbar a:not(.write-tab) .app-icon { width: 24px; height: 24px; }
+.entry-icon .app-icon { width: 28px; height: 28px; }
+.entry-row > b .app-icon { width: 14px; height: 20px; }
+.answer-grid button > span { display: grid; place-items: center; }
+.gallery-image > button:first-of-type { display: grid; place-items: center; padding: 0; }

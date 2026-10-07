@@ -1,10 +1,43 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';import { useRoute,useRouter } from 'vue-router';import { deleteEntry, diaryState, persist } from '../stores/diary';import { compressImage,imageRepository } from '../lib/image-repository'
-const route=useRoute(),router=useRouter(),entry=computed(()=>diaryState.entries.find(e=>e.id===route.params.id));const body=ref(''),tomorrow=ref(''),photos=ref<{id:string,url:string,blob:Blob}[]>([]),lightbox=ref(''),error=ref('');const originalIds=ref<string[]>([])
-onMounted(async()=>{if(!entry.value)return;body.value=entry.value.body;tomorrow.value=entry.value.tomorrow;originalIds.value=[...entry.value.imageIds];for(const id of entry.value.imageIds){const im=await imageRepository.get(id);if(im)photos.value.push({id,url:URL.createObjectURL(im.blob),blob:im.blob})}});onBeforeUnmount(()=>photos.value.forEach(p=>URL.revokeObjectURL(p.url)))
-async function addFiles(ev:Event){const files=[...(ev.target as HTMLInputElement).files||[]];if(photos.value.length+files.length>5){error.value='写真は5枚まで追加できます。';return}for(const f of files){try{const blob=await compressImage(f),id=crypto.randomUUID();photos.value.push({id,url:URL.createObjectURL(blob),blob})}catch{error.value='写真を読み込めませんでした。'}}}
-function remove(id:string){if(!confirm('この写真を日記から削除しますか？'))return;photos.value=photos.value.filter(p=>p.id!==id);if(entry.value?.thumbnailImageId===id)entry.value.thumbnailImageId=photos.value[0]?.id}
-async function save(){if(!entry.value)return;entry.value.body=body.value;entry.value.tomorrow=tomorrow.value;entry.value.imageIds=photos.value.map(p=>p.id);entry.value.updatedAt=new Date().toISOString();await Promise.all(photos.value.filter(p=>!originalIds.value.includes(p.id)).map(p=>imageRepository.put({id:p.id,entryId:entry.value!.id,blob:p.blob,type:p.blob.type,createdAt:new Date().toISOString()})));await Promise.all(originalIds.value.filter(id=>!entry.value!.imageIds.includes(id)).map(imageRepository.delete));persist();router.push('/records')}
-async function removeEntry(){if(entry.value&&confirm('この日の記録を削除しますか？')){await deleteEntry(entry.value.id);router.push('/records')}}
+import { ref } from 'vue'
+import TrashIcon from '../components/TrashIcon.vue'
+import { useRoute, useRouter } from 'vue-router'
+import { diaryState } from '../stores/diary'
+import DiaryEditor from '../components/DiaryEditor.vue'
+import { baseQuestions, activityQuestions } from '../data/questions'
+const route=useRoute(),router=useRouter(),entry=diaryState.entries.find(e=>e.id===route.params.id)
+const editor = ref<InstanceType<typeof DiaryEditor>>()
+const answers = [...baseQuestions, ...activityQuestions].flatMap(question => {
+ const value = entry?.answers?.[question.id]
+ if (value === undefined) return []
+ const option = question.options.find(option => option.value === value)
+ return [{ id: question.id, question: question.prompt, answer: value === 'skip' ? 'スキップ' : option?.label || '回答内容を表示できません', icon: option?.icon }]
+})
 </script>
-<template><div v-if="entry" class="page detail-page"><header class="detail-nav"><button @click="router.back()">‹</button><button class="danger" @click="removeEntry">削除</button></header><p class="eyebrow">{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date(entry.date+'T12:00'))}}</p><h1>{{entry.guess}}</h1><div class="tag-list"><span v-for="t in entry.tags"># {{t}}</span></div><div v-if="photos.length" class="detail-gallery"><div v-for="p in photos" :key="p.id" class="gallery-image" :class="{selected:entry.thumbnailImageId===p.id}"><img :src="p.url" alt="日記の写真" @click="lightbox=p.url"><button @click="remove(p.id)">×</button><button @click="entry.thumbnailImageId=p.id">{{entry.thumbnailImageId===p.id?'✓ 代表写真':'代表にする'}}</button></div></div><div class="photo-actions" v-if="photos.length<5"><label class="outline-button">＋ 写真を選ぶ<input type="file" accept="image/*" multiple @change="addFiles"></label><label class="outline-button">⌾ カメラ<input type="file" accept="image/*" capture="environment" @change="addFiles"></label></div><p class="error" v-if="error">{{error}}</p><label>今日のこと<textarea v-model="body"></textarea></label><label>明日やりたいこと<input v-model="tomorrow"></label><button class="primary-button full" @click="save">変更を保存する</button><div v-if="lightbox" class="lightbox" @click="lightbox=''"> <img :src="lightbox" alt="拡大した日記の写真"><button>×</button></div></div></template>
+<template><div v-if="entry" class="page detail-page"><header class="detail-nav"><button @click="router.back()" aria-label="戻る"><svg class="back-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 5-7 7 7 7" /></svg></button><button class="diary-trash" aria-label="日記を削除" title="日記を削除" :disabled="!editor || editor.busy" @click="editor?.removeDiary()"><TrashIcon /></button></header><p class="eyebrow">{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date(entry.date+'T12:00'))}}</p><h1>{{entry.guess}}</h1><div class="tag-list"><span v-for="tag in entry.tags" :key="tag"># {{tag}}</span></div><DiaryEditor ref="editor" :key="entry.id" :initial="entry" @deleted="router.push('/records')"/>
+<details class="soft-card diary-answers">
+ <summary>質問への回答<span class="answer-count">{{ answers.length }}件</span></summary>
+ <dl v-if="answers.length"><div v-for="answer in answers" :key="answer.id"><dt>{{ answer.question }}</dt><dd><span v-if="answer.icon" aria-hidden="true">{{ answer.icon }} </span>{{ answer.answer }}</dd></div></dl>
+ <p v-else>この日記には質問への回答が記録されていません。</p>
+</details></div><div v-else class="page"><p>この日記は見つかりませんでした。</p><RouterLink to="/records">記録へ戻る</RouterLink></div></template>
+
+<style scoped>
+.detail-nav{align-items:center}
+.back-icon{display:block;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.detail-nav>button{display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:0;line-height:1}
+
+.detail-nav .diary-trash{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;color:#a6534b}
+.detail-nav .diary-trash:hover{background:#f9eeeb}
+.detail-nav .diary-trash:disabled{opacity:.5;cursor:wait}
+.diary-answers{margin-top:20px;padding:14px 16px;background:white;border-radius:16px}
+.diary-answers summary{cursor:pointer;font-size:.9rem;font-weight:700;line-height:1.6;padding:6px 0}
+.diary-answers summary:focus-visible{outline:2px solid var(--forest);outline-offset:4px;border-radius:4px}
+.diary-answers[open] summary{margin-bottom:8px}
+.answer-count{margin-left:8px;font-size:.75rem;font-weight:400;color:var(--sub)}
+.diary-answers dl{margin:0}
+.diary-answers dl>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);align-items:baseline;gap:12px;padding:8px 0}
+.diary-answers dl>div+div{border-top:1px solid var(--line)}
+.diary-answers dl>div:last-child{padding-bottom:0}
+.diary-answers dt,.diary-answers p{font-size:.75rem;color:var(--sub);line-height:1.5;margin:0;overflow-wrap:anywhere}
+.diary-answers dd{margin:0;font-size:.8rem;font-weight:600;line-height:1.5;text-align:right;overflow-wrap:anywhere}
+</style>

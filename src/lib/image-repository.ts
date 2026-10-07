@@ -2,7 +2,7 @@ import type { DiaryImage } from '../types'
 const DB='daylog-images', STORE='images'
 const open=()=>new Promise<IDBDatabase>((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE,{keyPath:'id'});r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})
 export const imageRepository={
- async put(image:DiaryImage){const db=await open();return new Promise<void>((res,rej)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).put(image);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})},
+ async put(image:DiaryImage){const db=await open();return new Promise<void>((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(image);tx.oncomplete=()=>{db.close();res()};tx.onabort=tx.onerror=()=>{db.close();rej(tx.error)}})},
  async get(id:string){const db=await open();return new Promise<DiaryImage|undefined>((res,rej)=>{const r=db.transaction(STORE).objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})},
  async delete(id:string){const db=await open();return new Promise<void>((res,rej)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})},
 }

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import AppIcon from "../components/AppIcon.vue"
+
+import { confirmDelete } from '../lib/delete-confirmation'
+import TrashIcon from '../components/TrashIcon.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { accessLibrary, type MemoLibrary, type Memo } from '../lib/memo-repository'
@@ -71,11 +75,11 @@ async function save() {
  saving.value = false
 }
 async function removeNote() {
- if (!draft.value || !confirm('このメモを削除しますか？')) return
+ if (!draft.value || !await confirmDelete({ title: 'メモを削除しますか？', message: `「${draft.value.title.trim() || '無題のメモ'}」を削除します。削除すると元に戻せません。` })) return
  if (await commit({ folders: library.value.folders.map(f => ({ ...f })), notes: library.value.notes.filter(n => n.id !== draft.value!.id).map(n => ({ ...n })) })) { dirty.value = false; back() }
 }
 async function removeFolder() {
- if (!confirm(`「${folder.value?.name}」と中のメモ${notes.value.length}件を削除しますか？`)) return
+ if (!await confirmDelete({ title: 'フォルダを削除しますか？', message: `「${folder.value?.name}」と中のメモ${notes.value.length}件を削除します。削除すると元に戻せません。` })) return
  if (await commit({ folders: library.value.folders.filter(f => f.id !== folderId.value).map(f => ({ ...f })), notes: library.value.notes.filter(n => n.folderId !== folderId.value).map(n => ({ ...n })) })) { folderId.value = ''; renaming.value = false; folderName.value = '' }
 }
 function beforeUnload(e: BeforeUnloadEvent) { if (dirty.value || busy.value) { e.preventDefault(); e.returnValue = '' } }
@@ -91,12 +95,12 @@ onBeforeRouteLeave(() => !busy.value && discard())
   <p v-if="error" class="error" role="alert">{{ error }}</p>
   <template v-if="!loading && !loadFailed">
    <template v-if="draft">
-    <div class="memo-actions"><button class="outline-button" :disabled="busy" @click="back">‹ 一覧へ</button><button class="text-button" :disabled="busy" @click="removeNote">メモを削除</button></div>
+    <div class="memo-actions"><button class="outline-button" :disabled="busy" @click="back"><AppIcon name="chevron-left" /> 一覧へ</button><button class="text-button" :disabled="busy" aria-label="メモを削除" title="メモを削除" @click="removeNote"><TrashIcon /></button></div>
     <label class="memo-label">フォルダ<select v-model="draft.folderId" :disabled="busy" @change="changed"><option v-for="f in library.folders" :key="f.id" :value="f.id">{{ f.name }}</option></select></label>
     <label class="memo-label">タイトル<input v-model="draft.title" placeholder="無題のメモ" :disabled="busy" @input="changed"></label>
     <div class="memo-toolbar" role="toolbar" aria-label="本文の書式">
      <button v-for="item in [{label:'太字',command:'bold'},{label:'斜体',command:'italic'},{label:'下線',command:'underline'},{label:'見出し',command:'formatBlock',value:'h2'},{label:'本文',command:'formatBlock',value:'p'},{label:'箇条書き',command:'insertUnorderedList'},{label:'番号リスト',command:'insertOrderedList'},{label:'引用',command:'formatBlock',value:'blockquote'},{label:'元に戻す',command:'undo'},{label:'やり直す',command:'redo'}]" :key="item.label" :disabled="busy" @mousedown.prevent @click="format(item.command,'value' in item ? item.value : undefined)">{{ item.label }}</button>
-     <button :disabled="busy" @mousedown.prevent @click="remember(); fileInput?.click()">＋ 画像</button>
+     <button :disabled="busy" @mousedown.prevent @click="remember(); fileInput?.click()"><AppIcon name="plus" /> 画像</button>
     </div>
     <input ref="fileInput" type="file" accept="image/*" multiple hidden @change="addImages(Array.from(($event.target as HTMLInputElement).files || []))">
     <div ref="editor" class="memo-editor" :contenteditable="!saving" role="textbox" aria-label="メモ本文" aria-multiline="true" @input="changed" @keyup="remember" @mouseup="remember" @focusout="remember" @paste="paste" @drop.prevent></div>
@@ -104,10 +108,10 @@ onBeforeRouteLeave(() => !busy.value && discard())
     <button class="primary-button full" :disabled="busy" @click="save">{{ busy ? '処理中…' : 'メモを保存' }}</button><p role="status" class="memo-hint">{{ status || (dirty ? '未保存の変更があります' : '') }}</p>
    </template>
    <template v-else>
-    <div v-if="folder" class="memo-actions"><button class="outline-button" :disabled="busy" @click="folderId='';renaming=false;folderName=''">‹ フォルダ一覧</button><button class="text-button" :disabled="busy" @click="renaming=!renaming;folderName=folder.name">名前を変更</button><button class="text-button" :disabled="busy" @click="removeFolder">削除</button></div>
+    <div v-if="folder" class="memo-actions"><button class="outline-button" :disabled="busy" @click="folderId='';renaming=false;folderName=''"><AppIcon name="chevron-left" /> フォルダ一覧</button><button class="text-button" :disabled="busy" @click="renaming=!renaming;folderName=folder.name">名前を変更</button><button class="text-button" :disabled="busy" aria-label="フォルダを削除" title="フォルダを削除" @click="removeFolder"><TrashIcon /></button></div>
     <form v-if="!folder || renaming" class="folder-form" @submit.prevent="saveFolder"><label class="memo-label">{{ renaming ? 'フォルダ名を変更' : '新しいフォルダ' }}<input v-model="folderName" required maxlength="100" placeholder="読書、映画、アイデアなど" :disabled="busy"></label><button class="outline-button" :disabled="busy || !folderName.trim()">{{ renaming ? '変更' : '作成' }}</button></form>
-    <template v-if="!folder"><p v-if="!library.folders.length" class="soft-card">フォルダを作って、最初のメモを残しましょう。</p><div class="memo-list"><button v-for="f in library.folders" :key="f.id" class="soft-card memo-row" :disabled="busy" @click="folderId=f.id;folderName='' "><b>▱ {{ f.name }}</b><small>{{ library.notes.filter(n=>n.folderId===f.id).length }}件のメモ　›</small></button></div></template>
-    <template v-else><h2 class="folder-title">{{ folder.name }}</h2><button class="primary-button full" :disabled="busy" @click="openNote()">＋ メモを作成</button><p v-if="!notes.length" class="memo-hint">このフォルダにはまだメモがありません。</p><div class="memo-list"><button v-for="note in notes" :key="note.id" class="soft-card memo-row" :disabled="busy" @click="openNote(note)"><b>{{ note.title }}</b><small>{{ new Date(note.updatedAt).toLocaleString('ja-JP') }}</small></button></div></template>
+    <template v-if="!folder"><p v-if="!library.folders.length" class="soft-card">フォルダを作って、最初のメモを残しましょう。</p><div class="memo-list"><button v-for="f in library.folders" :key="f.id" class="soft-card memo-row" :disabled="busy" @click="folderId=f.id;folderName='' "><b><AppIcon name="folder" /> {{ f.name }}</b><small>{{ library.notes.filter(n=>n.folderId===f.id).length }}件のメモ <AppIcon name="chevron-right" /></small></button></div></template>
+    <template v-else><h2 class="folder-title">{{ folder.name }}</h2><button class="primary-button full" :disabled="busy" @click="openNote()"><AppIcon name="plus" /> メモを作成</button><p v-if="!notes.length" class="memo-hint">このフォルダにはまだメモがありません。</p><div class="memo-list"><button v-for="note in notes" :key="note.id" class="soft-card memo-row" :disabled="busy" @click="openNote(note)"><b>{{ note.title }}</b><small>{{ new Date(note.updatedAt).toLocaleString('ja-JP') }}</small></button></div></template>
     <p class="memo-hint">メモと画像はこの端末のブラウザに保存されます。</p>
    </template>
   </template>
