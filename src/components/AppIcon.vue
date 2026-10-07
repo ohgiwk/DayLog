@@ -3,6 +3,16 @@ import { computed } from 'vue'
 const props = defineProps<{ name: string }>()
 const aliases: Record<string, string> = { '😌':'smile', '🙂':'smile', '🌿':'leaf', '🌧️':'cloud', '🌙':'moon', '☀️':'sun', '☁️':'cloud', '🍃':'leaf', '○':'circle', '◌':'circle-dashed', '—':'minus', '…':'more', '🚶':'walk', '🏃':'walk', '🧘':'person', '🏸':'activity' }
 const paths: Record<string, string> = {
+ bold:'M6 4h7a4 4 0 0 1 0 8H6m0-8v16h8a4 4 0 0 0 0-8H6',
+ italic:'M10 4h10M4 20h10M15 4 9 20',
+ underline:'M6 3v8a6 6 0 0 0 12 0V3M4 21h16',
+ heading:'M4 4v16M16 4v16M4 12h12M20 16v4',
+ paragraph:'M13 20V4h6M17 4v16M13 4H9a5 5 0 0 0 0 10h4',
+ 'list-bullet':'M9 6h12M9 12h12M9 18h12M3 6h.01M3 12h.01M3 18h.01',
+ 'list-number':'M10 6h11M10 12h11M10 18h11M3 3h1v6M2 9h4M2 15a2 2 0 0 1 4 0c0 2-4 2-4 5h4',
+ quote:'M4 6h6v7H4V6m6 7c0 4-2 5-4 5M14 6h6v7h-6V6m6 7c0 4-2 5-4 5',
+ undo:'m8 4-5 5 5 5M3 9h11a6 6 0 0 1 0 12',
+ redo:'m16 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12',
  'chevron-left':'m15 5-7 7 7 7', 'chevron-right':'m9 5 7 7-7 7',
  'arrow-right':'M4 12h16m-6-6 6 6-6 6', plus:'M12 5v14M5 12h14', close:'m6 6 12 12M6 18 18 6', check:'m5 12 4 4L19 6',
  home:'m3 10 9-7 9 7v10H3V10m6 10v-7h6v7', records:'M5 3h14v18H5V3m3 5h8M8 12h8M8 16h8',

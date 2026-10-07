@@ -6,17 +6,43 @@ import TrashIcon from '../components/TrashIcon.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { accessLibrary, type MemoLibrary, type Memo } from '../lib/memo-repository'
-import { cleanMemoHtml } from '../lib/memo-html'
+import { splitMemoContent } from '../lib/memo-html'
 import { compressImage } from '../lib/image-repository'
+const formatGroups: { label: string; items: { label: string; icon: string; command: string; value?: string }[] }[] = [
+ { label: '文字装飾', items: [
+  { label: '太字', icon: 'bold', command: 'bold' },
+  { label: '斜体', icon: 'italic', command: 'italic' },
+  { label: '下線', icon: 'underline', command: 'underline' },
+ ] },
+ { label: '段落', items: [
+  { label: '見出し', icon: 'heading', command: 'formatBlock', value: 'h2' },
+  { label: '本文', icon: 'paragraph', command: 'formatBlock', value: 'p' },
+ ] },
+ { label: 'リスト・引用', items: [
+  { label: '箇条書き', icon: 'list-bullet', command: 'insertUnorderedList' },
+  { label: '番号リスト', icon: 'list-number', command: 'insertOrderedList' },
+  { label: '引用', icon: 'quote', command: 'formatBlock', value: 'blockquote' },
+ ] },
+ { label: '編集履歴', items: [
+  { label: '元に戻す', icon: 'undo', command: 'undo' },
+  { label: 'やり直す', icon: 'redo', command: 'redo' },
+ ] },
+]
 const library = ref<MemoLibrary>({ folders: [], notes: [] })
-const loadFailed = ref(false), saving = ref(false)
+const loadFailed = ref(false)
 const loading = ref(true), busy = ref(false), error = ref(''), status = ref('')
 const folderId = ref(''), draft = ref<Memo | null>(null), dirty = ref(false)
-const editor = ref<HTMLElement>(), fileInput = ref<HTMLInputElement>()
+const editor = ref<HTMLElement>()
 const folderName = ref(''), memoTitle = ref(''), targetFolder = ref('')
 const createKind = ref<'folder' | 'note' | 'rename'>('folder')
 const createDialog = ref<HTMLDialogElement>(), nameInput = ref<HTMLInputElement>(), fab = ref<HTMLButtonElement>()
 const dialogOpen = ref(false)
+const formatMenuOpen = ref(false)
+const formatMenu = ref<HTMLElement>(), formatMenuButton = ref<HTMLButtonElement>()
+function closeFormatMenu(restoreFocus = false) {
+ formatMenuOpen.value = false
+ if (restoreFocus) formatMenuButton.value?.focus()
+}
 const folderMenuOpen = ref(false)
 const folderMenu = ref<HTMLElement>(), folderMenuButton = ref<HTMLButtonElement>()
 function closeFolderMenu(restoreFocus = false) {
@@ -24,9 +50,11 @@ function closeFolderMenu(restoreFocus = false) {
  if (restoreFocus) folderMenuButton.value?.focus()
 }
 function dismissFolderMenu(event: PointerEvent) {
+ if (event.target instanceof Node && !formatMenu.value?.contains(event.target)) closeFormatMenu()
  if (event.target instanceof Node && !folderMenu.value?.contains(event.target)) closeFolderMenu()
 }
 function escapeFolderMenu(event: KeyboardEvent) {
+ if (event.key === 'Escape' && formatMenuOpen.value) { event.preventDefault(); closeFormatMenu(true) }
  if (event.key === 'Escape' && folderMenuOpen.value) { event.preventDefault(); closeFolderMenu(true) }
 }
 async function renameFolder() {
@@ -93,11 +121,11 @@ async function saveFolder() {
  return true
 }
 function discard() { return !dirty.value || confirm('保存していない変更を破棄しますか？') }
-function back() { if (busy.value || !discard()) return; draft.value = null; dirty.value = false; status.value = ''; selection = null }
+function back() { if (busy.value || !discard()) return; draft.value = null; closeFormatMenu(); dirty.value = false; status.value = ''; selection = null }
 async function openNote(note?: Memo) {
- draft.value = note ? { ...note } : { id: crypto.randomUUID(), folderId: folderId.value, title: '', html: '', updatedAt: '' }
+ draft.value = note ? { ...note, ...splitMemoContent(note.html, note.images) } : { images: [], id: crypto.randomUUID(), folderId: folderId.value, title: '', html: '', updatedAt: '' }
  dirty.value = !note; status.value = ''; selection = null
- await nextTick(); if (editor.value) editor.value.innerHTML = cleanMemoHtml(draft.value.html)
+ await nextTick(); if (editor.value) editor.value.innerHTML = draft.value.html
 }
 function changed() { dirty.value = true; status.value = '' }
 function remember() { const s = window.getSelection(); if (s?.rangeCount && editor.value?.contains(s.anchorNode)) selection = s.getRangeAt(0).cloneRange() }
@@ -105,35 +133,51 @@ function focusEditor() {
  editor.value?.focus(); const s = window.getSelection()
  if (selection && editor.value?.contains(selection.commonAncestorContainer)) { s?.removeAllRanges(); s?.addRange(selection) }
 }
-function format(command: string, value?: string) { focusEditor(); document.execCommand(command, false, value); remember(); changed() }
+function format(command: string, value?: string) { closeFormatMenu(); focusEditor(); document.execCommand(command, false, value); remember(); changed() }
 function paste(event: ClipboardEvent) {
  event.preventDefault()
  const images = Array.from(event.clipboardData?.files || []).filter(f => f.type.startsWith('image/'))
- if (images.length) { remember(); void addImages(images); return }
+ if (images.length) { void addImages(images); return }
  const html = event.clipboardData?.getData('text/html')
- if (html) format('insertHTML', cleanMemoHtml(html))
+ if (html) {
+  const content = splitMemoContent(html)
+  if (draft.value && content.images.length) {
+   draft.value.images = [...(draft.value.images || []), ...content.images]
+   changed()
+  }
+  format('insertHTML', content.html)
+ }
  else format('insertText', event.clipboardData?.getData('text/plain') || '')
 }
 async function addImages(files: File[]) {
- if (busy.value) return
+ if (busy.value || !draft.value || !files.length) return
  busy.value = true; error.value = ''
  try {
   for (const file of files) {
    if (!file.type.startsWith('image/')) throw new Error('invalid image')
    const blob = await compressImage(file)
    const url = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(blob) })
-   format('insertHTML', `<img src="${url}" alt="メモの画像"><p><br></p>`)
+   draft.value.images = [...(draft.value.images || []), url]
+   changed()
   }
  } catch { error.value = '画像を追加できませんでした。別の画像でお試しください。' }
- finally { busy.value = false; if (fileInput.value) fileInput.value.value = '' }
+ finally { busy.value = false }
+}
+async function addImageFiles(event: Event) {
+ const input = event.target as HTMLInputElement
+ await addImages(Array.from(input.files || []))
+ input.value = ''
+}
+async function removeImage(index: number) {
+ if (busy.value || !draft.value || !await confirmDelete({ title: '写真を削除しますか？', message: 'この写真をメモから取り除きます。メモを保存すると反映されます。' })) return
+ draft.value.images = draft.value.images?.filter((_, i) => i !== index)
+ changed()
 }
 async function save() {
  if (!draft.value || busy.value) return
- const note = { ...draft.value, title: draft.value.title.trim() || '無題のメモ', html: cleanMemoHtml(editor.value?.innerHTML || ''), updatedAt: new Date().toISOString() }
+ const note = { ...draft.value, title: draft.value.title.trim() || '無題のメモ', ...splitMemoContent(editor.value?.innerHTML || '', draft.value.images), updatedAt: new Date().toISOString() }
  const value = { folders: library.value.folders.map(f => ({ ...f })), notes: [...library.value.notes.filter(n => n.id !== note.id).map(n => ({ ...n })), note] }
- saving.value = true
  if (await commit(value)) { draft.value = { ...note }; dirty.value = false; folderId.value = note.folderId; status.value = '保存しました' }
- saving.value = false
 }
 async function removeNote() {
  if (!draft.value || !await confirmDelete({ title: 'メモを削除しますか？', message: `「${draft.value.title.trim() || '無題のメモ'}」を削除します。削除すると元に戻せません。` })) return
@@ -163,12 +207,38 @@ onBeforeRouteLeave(() => !busy.value && discard())
     <label class="memo-label">フォルダ<select v-model="draft.folderId" :disabled="busy" @change="changed"><option v-for="f in library.folders" :key="f.id" :value="f.id">{{ f.name }}</option></select></label>
     <label class="memo-label">タイトル<input v-model="draft.title" placeholder="無題のメモ" :disabled="busy" @input="changed"></label>
     <div class="memo-toolbar" role="toolbar" aria-label="本文の書式">
-     <button v-for="item in [{label:'太字',command:'bold'},{label:'斜体',command:'italic'},{label:'下線',command:'underline'},{label:'見出し',command:'formatBlock',value:'h2'},{label:'本文',command:'formatBlock',value:'p'},{label:'箇条書き',command:'insertUnorderedList'},{label:'番号リスト',command:'insertOrderedList'},{label:'引用',command:'formatBlock',value:'blockquote'},{label:'元に戻す',command:'undo'},{label:'やり直す',command:'redo'}]" :key="item.label" :disabled="busy" @mousedown.prevent @click="format(item.command,'value' in item ? item.value : undefined)">{{ item.label }}</button>
-     <button :disabled="busy" @mousedown.prevent @click="remember(); fileInput?.click()"><AppIcon name="plus" /> 画像</button>
+     <div class="memo-format-group" role="group" aria-label="文字装飾">
+      <button v-for="item in formatGroups[0]!.items" :key="item.label" type="button" :aria-label="item.label" :title="item.label" :disabled="busy" @mousedown.prevent @click="format(item.command, item.value)"><AppIcon :name="item.icon" /></button>
+     </div>
+     <div ref="formatMenu" class="memo-format-menu" @focusout="!formatMenu?.contains($event.relatedTarget as Node | null) && closeFormatMenu()">
+      <button ref="formatMenuButton" type="button" aria-label="段落・リストの書式" title="段落・リストの書式" :aria-expanded="formatMenuOpen" aria-controls="memo-format-options" :disabled="busy" @mousedown.prevent @click="formatMenuOpen = !formatMenuOpen"><AppIcon name="text" /><span class="format-caret" aria-hidden="true"></span></button>
+      <div v-if="formatMenuOpen" id="memo-format-options" class="memo-format-options">
+       <div v-for="group in formatGroups.slice(1, 3)" :key="group.label" role="group" :aria-label="group.label">
+        <span class="format-group-label">{{ group.label }}</span>
+        <div class="format-option-row"><button v-for="item in group.items" :key="item.label" type="button" :aria-label="item.label" :title="item.label" :disabled="busy" @mousedown.prevent @click="format(item.command, item.value)"><AppIcon :name="item.icon" /></button></div>
+       </div>
+      </div>
+     </div>
+     <div class="memo-format-group memo-history" role="group" aria-label="編集履歴">
+      <button v-for="item in formatGroups[3]!.items" :key="item.label" type="button" :aria-label="item.label" :title="item.label" :disabled="busy" @mousedown.prevent @click="format(item.command, item.value)"><AppIcon :name="item.icon" /></button>
+     </div>
     </div>
-    <input ref="fileInput" type="file" accept="image/*" multiple hidden @change="addImages(Array.from(($event.target as HTMLInputElement).files || []))">
-    <div ref="editor" class="memo-editor" :contenteditable="!saving" role="textbox" aria-label="メモ本文" aria-multiline="true" @input="changed" @keyup="remember" @mouseup="remember" @focusout="remember" @paste="paste" @drop.prevent></div>
-    <p class="memo-hint">画像はカーソル位置に挿入されます。選択して削除キーで取り除けます。</p>
+    <div ref="editor" class="memo-editor" :contenteditable="!busy" role="textbox" aria-label="メモ本文" aria-multiline="true" @input="changed" @keyup="remember" @mouseup="remember" @focusout="remember" @paste="paste" @drop.prevent></div>
+    <section class="memo-attachments" aria-labelledby="memo-photos-title">
+     <h2 id="memo-photos-title">添付写真 <small>{{ draft.images?.length || 0 }}枚</small></h2>
+     <div v-if="draft.images?.length" class="memo-photo-grid">
+      <div v-for="(image, index) in draft.images" :key="index" class="memo-photo">
+       <img :src="image" :alt="`メモの添付写真 ${index + 1}`">
+       <button type="button" :disabled="busy" :aria-label="`写真 ${index + 1} を削除`" title="写真を削除" @click="removeImage(index)"><TrashIcon /></button>
+      </div>
+     </div>
+     <p v-else class="memo-hint">写真を本文とは別に添付できます。</p>
+     <div class="photo-actions">
+      <label class="outline-button"><AppIcon name="plus" /> 写真を選ぶ<input type="file" accept="image/*" multiple :disabled="busy" @change="addImageFiles"></label>
+      <label class="outline-button"><AppIcon name="camera" /> カメラ<input type="file" accept="image/*" capture="environment" :disabled="busy" @change="addImageFiles"></label>
+     </div>
+     <p v-if="busy" class="memo-hint" role="status">処理中…</p>
+    </section>
     <button class="primary-button full" :disabled="busy" @click="save">{{ busy ? '処理中…' : 'メモを保存' }}</button><p role="status" class="memo-hint">{{ status || (dirty ? '未保存の変更があります' : '') }}</p>
    </template>
    <template v-else>
@@ -231,4 +301,27 @@ onBeforeRouteLeave(() => !busy.value && discard())
 .memo-create-dialog .memo-label input,.memo-create-dialog .memo-label select{font-size:16px}
 .create-actions{display:flex;gap:10px;margin-top:24px}.create-actions button{flex:1;min-height:48px;min-width:0;font-size:.82rem!important;border-radius:14px;cursor:pointer}
 .memo-fab:focus-visible,.memo-create-dialog :is(input,select,button):focus-visible{outline:2px solid var(--sage);outline-offset:3px}
+</style>
+
+<style scoped>
+.memo-toolbar{display:flex;flex-wrap:nowrap;gap:4px;padding:6px;align-items:center}
+.memo-format-group{display:flex;flex:3;min-width:0;gap:0;padding:0}
+.memo-history{flex:2;border-left:1px solid var(--line);padding-left:4px}
+.memo-format-menu{position:relative;flex:1.2;min-width:0;border-left:1px solid var(--line);padding-left:4px}
+.memo-format-menu>button{width:100%;display:flex!important;justify-content:center;gap:4px}
+.format-caret{width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);margin-top:-3px}
+.memo-format-options{position:absolute;z-index:23;top:calc(100% + 8px);right:0;width:168px;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 24px #183d3520}
+.format-group-label{display:block;color:var(--sub);font-size:.7rem;margin:2px 4px 4px}
+.memo-format-options>div+div{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
+.format-option-row{display:flex}
+.memo-toolbar button{display:grid;place-items:center;flex:1;min-width:0;min-height:44px;padding:6px;border:0;background:transparent}
+.memo-toolbar button:hover:not(:disabled){background:var(--mist)}
+.memo-toolbar button:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+.memo-attachments{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.memo-attachments h2{margin:0 0 14px;font-size:.9rem}
+.memo-attachments h2 small{margin-left:6px;color:var(--sub);font-weight:400}
+.memo-photo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.memo-photo{position:relative;min-width:0}
+.memo-photo img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px}
+.memo-photo button{position:absolute;top:4px;right:4px;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:12px;background:#fffffff0;color:#b34141;cursor:pointer}
 </style>

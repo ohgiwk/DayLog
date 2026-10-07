@@ -21,3 +21,15 @@ export function cleanMemoHtml(html: string): string {
  source.body.childNodes.forEach(node => copy(node, result))
  return result.innerHTML
 }
+
+// Separate legacy inline images without changing the stored document until save.
+export function splitMemoContent(html: string, attachments: string[] = []) {
+ const container = document.createElement('div')
+ container.innerHTML = cleanMemoHtml(html)
+ const images = attachments.filter(src => /^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=\s]+$/i.test(src))
+ container.querySelectorAll('img').forEach(img => {
+  images.push(img.getAttribute('src')!)
+  img.remove()
+ })
+ return { html: container.innerHTML, images }
+}

@@ -1,5 +1,5 @@
 export interface MemoFolder { id: string; name: string }
-export interface Memo { id: string; folderId: string; title: string; html: string; updatedAt: string }
+export interface Memo { id: string; folderId: string; title: string; html: string; images?: string[]; updatedAt: string }
 export interface MemoLibrary { folders: MemoFolder[]; notes: Memo[] }
 // Keep image-containing documents out of localStorage's small quota.
 export async function accessLibrary(value?: MemoLibrary): Promise<MemoLibrary> {
