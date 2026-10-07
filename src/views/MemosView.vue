@@ -13,7 +13,62 @@ const loadFailed = ref(false), saving = ref(false)
 const loading = ref(true), busy = ref(false), error = ref(''), status = ref('')
 const folderId = ref(''), draft = ref<Memo | null>(null), dirty = ref(false)
 const editor = ref<HTMLElement>(), fileInput = ref<HTMLInputElement>()
-const folderName = ref(''), renaming = ref(false)
+const folderName = ref(''), memoTitle = ref(''), targetFolder = ref('')
+const createKind = ref<'folder' | 'note' | 'rename'>('folder')
+const createDialog = ref<HTMLDialogElement>(), nameInput = ref<HTMLInputElement>(), fab = ref<HTMLButtonElement>()
+const dialogOpen = ref(false)
+const folderMenuOpen = ref(false)
+const folderMenu = ref<HTMLElement>(), folderMenuButton = ref<HTMLButtonElement>()
+function closeFolderMenu(restoreFocus = false) {
+ folderMenuOpen.value = false
+ if (restoreFocus) folderMenuButton.value?.focus()
+}
+function dismissFolderMenu(event: PointerEvent) {
+ if (event.target instanceof Node && !folderMenu.value?.contains(event.target)) closeFolderMenu()
+}
+function escapeFolderMenu(event: KeyboardEvent) {
+ if (event.key === 'Escape' && folderMenuOpen.value) { event.preventDefault(); closeFolderMenu(true) }
+}
+async function renameFolder() {
+ closeFolderMenu(true)
+ await showCreate('rename')
+}
+const canCreate = computed(() => !busy.value && (createKind.value === 'note'
+ ? library.value.folders.some(f => f.id === targetFolder.value)
+ : !!folderName.value.trim()))
+async function showCreate(kind: 'folder' | 'note' | 'rename' = folder.value ? 'note' : 'folder') {
+ if (busy.value || loading.value || loadFailed.value) return
+ closeFolderMenu()
+ createKind.value = kind
+ folderName.value = kind === 'rename' ? folder.value?.name ?? '' : ''
+ memoTitle.value = ''; targetFolder.value = folderId.value || library.value.folders[0]?.id || ''
+ error.value = ''; dialogOpen.value = true
+ await nextTick()
+ createDialog.value?.showModal(); nameInput.value?.focus()
+}
+async function selectCreateKind(kind: 'folder' | 'note') {
+ createKind.value = kind
+ await nextTick(); nameInput.value?.focus()
+}
+function closeCreate() {
+ if (busy.value) return
+ createDialog.value?.close(); dialogOpen.value = false
+}
+async function createItem() {
+ if (!canCreate.value) return
+ if (createKind.value !== 'note') {
+  if (await saveFolder()) closeCreate()
+  return
+ }
+ const note: Memo = { id: crypto.randomUUID(), folderId: targetFolder.value, title: memoTitle.value.trim() || '無題のメモ', html: '', updatedAt: new Date().toISOString() }
+ const value = JSON.parse(JSON.stringify(library.value)) as MemoLibrary
+ value.notes.push(note)
+ if (!await commit(value)) return
+ folderId.value = note.folderId
+ closeCreate()
+ await openNote(note)
+ editor.value?.focus()
+}
 const folder = computed(() => library.value.folders.find(f => f.id === folderId.value))
 const notes = computed(() => library.value.notes.filter(n => n.folderId === folderId.value).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)))
 let selection: Range | null = null
@@ -25,11 +80,17 @@ async function commit(value: MemoLibrary) {
  finally { busy.value = false }
 }
 async function saveFolder() {
- const name = folderName.value.trim(); if (!name) return
+ const name = folderName.value.trim(); if (!name || busy.value) return false
  const value = JSON.parse(JSON.stringify(library.value)) as MemoLibrary
- if (renaming.value) { const f = value.folders.find(f => f.id === folderId.value); if (f) f.name = name }
- else { const id = crypto.randomUUID(); value.folders.push({ id, name }); if (await commit(value)) { folderId.value = id; folderName.value = '' }; return }
- if (await commit(value)) { renaming.value = false; folderName.value = '' }
+ let id = folderId.value
+ if (createKind.value === 'rename') {
+  const existing = value.folders.find(f => f.id === id)
+  if (!existing) return false
+  existing.name = name
+ } else { id = crypto.randomUUID(); value.folders.push({ id, name }) }
+ if (!await commit(value)) return false
+ folderId.value = id; folderName.value = ''
+ return true
 }
 function discard() { return !dirty.value || confirm('保存していない変更を破棄しますか？') }
 function back() { if (busy.value || !discard()) return; draft.value = null; dirty.value = false; status.value = ''; selection = null }
@@ -79,12 +140,15 @@ async function removeNote() {
  if (await commit({ folders: library.value.folders.map(f => ({ ...f })), notes: library.value.notes.filter(n => n.id !== draft.value!.id).map(n => ({ ...n })) })) { dirty.value = false; back() }
 }
 async function removeFolder() {
+ closeFolderMenu(true)
  if (!await confirmDelete({ title: 'フォルダを削除しますか？', message: `「${folder.value?.name}」と中のメモ${notes.value.length}件を削除します。削除すると元に戻せません。` })) return
- if (await commit({ folders: library.value.folders.filter(f => f.id !== folderId.value).map(f => ({ ...f })), notes: library.value.notes.filter(n => n.folderId !== folderId.value).map(n => ({ ...n })) })) { folderId.value = ''; renaming.value = false; folderName.value = '' }
+ if (await commit({ folders: library.value.folders.filter(f => f.id !== folderId.value).map(f => ({ ...f })), notes: library.value.notes.filter(n => n.folderId !== folderId.value).map(n => ({ ...n })) })) { folderId.value = ''; folderName.value = '' }
 }
 function beforeUnload(e: BeforeUnloadEvent) { if (dirty.value || busy.value) { e.preventDefault(); e.returnValue = '' } }
 window.addEventListener('beforeunload', beforeUnload)
-onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
+document.addEventListener('pointerdown', dismissFolderMenu)
+document.addEventListener('keydown', escapeFolderMenu)
+onBeforeUnmount(() => { window.removeEventListener('beforeunload', beforeUnload); document.removeEventListener('pointerdown', dismissFolderMenu); document.removeEventListener('keydown', escapeFolderMenu); createDialog.value?.close() })
 onBeforeRouteLeave(() => !busy.value && discard())
 </script>
 
@@ -92,7 +156,7 @@ onBeforeRouteLeave(() => !busy.value && discard())
  <div class="page memos-page">
   <header class="page-header"><p class="eyebrow">MY NOTEBOOK</p><h1>メモ</h1><p>覚えておきたいこと、心に残ったこと。</p></header>
   <p v-if="loading" role="status">読み込み中…</p>
-  <p v-if="error" class="error" role="alert">{{ error }}</p>
+  <p v-if="error && !dialogOpen" class="error" role="alert">{{ error }}</p>
   <template v-if="!loading && !loadFailed">
    <template v-if="draft">
     <div class="memo-actions"><button class="outline-button" :disabled="busy" @click="back"><AppIcon name="chevron-left" /> 一覧へ</button><button class="text-button" :disabled="busy" aria-label="メモを削除" title="メモを削除" @click="removeNote"><TrashIcon /></button></div>
@@ -108,16 +172,63 @@ onBeforeRouteLeave(() => !busy.value && discard())
     <button class="primary-button full" :disabled="busy" @click="save">{{ busy ? '処理中…' : 'メモを保存' }}</button><p role="status" class="memo-hint">{{ status || (dirty ? '未保存の変更があります' : '') }}</p>
    </template>
    <template v-else>
-    <div v-if="folder" class="memo-actions"><button class="outline-button" :disabled="busy" @click="folderId='';renaming=false;folderName=''"><AppIcon name="chevron-left" /> フォルダ一覧</button><button class="text-button" :disabled="busy" @click="renaming=!renaming;folderName=folder.name">名前を変更</button><button class="text-button" :disabled="busy" aria-label="フォルダを削除" title="フォルダを削除" @click="removeFolder"><TrashIcon /></button></div>
-    <form v-if="!folder || renaming" class="folder-form" @submit.prevent="saveFolder"><label class="memo-label">{{ renaming ? 'フォルダ名を変更' : '新しいフォルダ' }}<input v-model="folderName" required maxlength="100" placeholder="読書、映画、アイデアなど" :disabled="busy"></label><button class="outline-button" :disabled="busy || !folderName.trim()">{{ renaming ? '変更' : '作成' }}</button></form>
-    <template v-if="!folder"><p v-if="!library.folders.length" class="soft-card">フォルダを作って、最初のメモを残しましょう。</p><div class="memo-list"><button v-for="f in library.folders" :key="f.id" class="soft-card memo-row" :disabled="busy" @click="folderId=f.id;folderName='' "><b><AppIcon name="folder" /> {{ f.name }}</b><small>{{ library.notes.filter(n=>n.folderId===f.id).length }}件のメモ <AppIcon name="chevron-right" /></small></button></div></template>
-    <template v-else><h2 class="folder-title">{{ folder.name }}</h2><button class="primary-button full" :disabled="busy" @click="openNote()"><AppIcon name="plus" /> メモを作成</button><p v-if="!notes.length" class="memo-hint">このフォルダにはまだメモがありません。</p><div class="memo-list"><button v-for="note in notes" :key="note.id" class="soft-card memo-row" :disabled="busy" @click="openNote(note)"><b>{{ note.title }}</b><small>{{ new Date(note.updatedAt).toLocaleString('ja-JP') }}</small></button></div></template>
+    <div v-if="folder" class="memo-actions">
+     <button class="outline-button" :disabled="busy" @click="closeFolderMenu();folderId='';folderName=''"><AppIcon name="chevron-left" /> フォルダ一覧</button>
+     <div ref="folderMenu" class="folder-menu" @focusout="!folderMenu?.contains($event.relatedTarget as Node | null) && closeFolderMenu()">
+      <button ref="folderMenuButton" class="folder-menu-trigger" type="button" :disabled="busy" aria-label="フォルダの操作" :aria-expanded="folderMenuOpen" aria-controls="folder-actions" @click="folderMenuOpen = !folderMenuOpen"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg></button>
+      <div v-if="folderMenuOpen" id="folder-actions" class="folder-menu-panel" role="group" aria-label="フォルダの操作">
+       <button type="button" :disabled="busy" @click="renameFolder"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m16 3 5 5M4 15 16 3a3.54 3.54 0 0 1 5 5L9 20l-6 1 1-6Z" /></svg> 名前を変更</button>
+       <button type="button" class="folder-menu-delete" :disabled="busy" @click="removeFolder"><TrashIcon /> フォルダを削除</button>
+      </div>
+     </div>
+    </div>
+
+    <template v-if="!folder"><p v-if="!library.folders.length" class="soft-card">右下の＋からフォルダを作って、最初のメモを残しましょう。</p><div class="memo-list"><button v-for="f in library.folders" :key="f.id" class="soft-card memo-row" :disabled="busy" @click="folderId=f.id;folderName='' "><b><AppIcon name="folder" /> {{ f.name }}</b><small>{{ library.notes.filter(n=>n.folderId===f.id).length }}件のメモ <AppIcon name="chevron-right" /></small></button></div></template>
+    <template v-else><h2 class="folder-title">{{ folder.name }}</h2><p v-if="!notes.length" class="memo-hint">まだメモがありません。右下の＋から作成できます。</p><div class="memo-list"><button v-for="note in notes" :key="note.id" class="soft-card memo-row" :disabled="busy" @click="openNote(note)"><b>{{ note.title }}</b><small>{{ new Date(note.updatedAt).toLocaleString('ja-JP') }}</small></button></div></template>
+    <button ref="fab" class="memo-fab" type="button" aria-label="フォルダ・メモを新規作成" aria-haspopup="dialog" :disabled="busy" @click="showCreate()"><AppIcon name="plus" /></button>
     <p class="memo-hint">メモと画像はこの端末のブラウザに保存されます。</p>
    </template>
   </template>
+  <Teleport to="body">
+   <dialog ref="createDialog" class="memo-create-dialog" aria-labelledby="memo-create-title" @cancel.prevent="closeCreate" @close="dialogOpen = false" @click="($event.target === createDialog) && closeCreate()">
+    <form @submit.prevent="createItem">
+     <div class="create-heading"><h2 id="memo-create-title">{{ createKind === 'rename' ? 'フォルダ名を変更' : '新しく作成' }}</h2><button type="button" class="create-close" aria-label="閉じる" :disabled="busy" @click="closeCreate"><AppIcon name="close" /></button></div>
+     <div v-if="createKind !== 'rename'" class="create-options" role="group" aria-label="作成する種類">
+      <button type="button" :aria-pressed="createKind === 'folder'" :disabled="busy" @click="selectCreateKind('folder')"><AppIcon name="folder" /> フォルダ</button>
+      <button type="button" :aria-pressed="createKind === 'note'" :disabled="busy" @click="selectCreateKind('note')"><AppIcon name="note" /> メモ</button>
+     </div>
+     <template v-if="createKind === 'note'">
+      <label class="memo-label">タイトル<input ref="nameInput" v-model="memoTitle" maxlength="200" placeholder="無題のメモ" :disabled="busy"></label>
+      <label class="memo-label">保存先フォルダ<select v-model="targetFolder" required :disabled="busy || !library.folders.length"><option disabled value="">フォルダを選択</option><option v-for="f in library.folders" :key="f.id" :value="f.id">{{ f.name }}</option></select></label>
+      <p v-if="!library.folders.length" class="memo-hint">先にフォルダを作成してください。</p>
+     </template>
+     <label v-else class="memo-label">フォルダ名<input ref="nameInput" v-model="folderName" required maxlength="100" placeholder="読書、映画、アイデアなど" :disabled="busy"></label>
+     <p v-if="error" class="error" role="alert">{{ error }}</p>
+     <div class="create-actions"><button type="button" class="outline-button" :disabled="busy" @click="closeCreate">キャンセル</button><button type="submit" class="primary-button" :disabled="!canCreate">{{ busy ? '保存中…' : createKind === 'rename' ? '変更する' : '作成する' }}</button></div>
+    </form>
+   </dialog>
+  </Teleport>
  </div>
 </template>
 
 <style scoped>
-.memo-actions{display:flex;gap:6px;justify-content:space-between;flex-wrap:wrap}.memo-label{display:flex;flex-direction:column;gap:8px;font-size:.8rem;margin:16px 0;flex:1;min-width:0}.memo-label input,.memo-label select{width:100%;min-height:44px;padding:12px;border:1px solid var(--line);border-radius:12px;background:white;color:var(--text);font:inherit}.folder-form{display:flex;align-items:center;gap:10px}.folder-form button{margin-top:24px}.memo-list{display:grid;gap:12px;margin-top:20px}.memo-row{display:flex;flex-direction:column;text-align:left;gap:8px;width:100%;color:var(--text);cursor:pointer;overflow-wrap:anywhere}.memo-row small,.memo-hint{color:var(--sub);font-size:.75rem;line-height:1.7}.folder-title{overflow-wrap:anywhere}.memo-toolbar{display:flex;flex-wrap:wrap;gap:6px;background:var(--mist);padding:10px;border-radius:14px 14px 0 0}.memo-toolbar button{background:white;border:1px solid var(--line);padding:8px;border-radius:8px;color:var(--forest);min-height:40px;cursor:pointer;font-size:.75rem}.memo-editor{background:white;border:1px solid var(--line);border-radius:0 0 14px 14px;min-height:320px;padding:16px;line-height:1.9;overflow-wrap:anywhere}.memo-editor:focus{outline:2px solid var(--sage);outline-offset:2px}.memo-editor :deep(img){max-width:100%;height:auto;border-radius:8px}.memo-editor :deep(blockquote){border-left:3px solid var(--sage);margin-left:0;padding-left:14px;color:var(--sub)}button:disabled{opacity:.5;cursor:wait}
+.memo-actions{display:flex;gap:6px;justify-content:space-between;flex-wrap:wrap}.memo-label{display:flex;flex-direction:column;gap:8px;font-size:.8rem;margin:16px 0;flex:1;min-width:0}.memo-label input,.memo-label select{width:100%;min-height:44px;padding:12px;border:1px solid var(--line);border-radius:12px;background:white;color:var(--text);font:inherit}.memo-list{display:grid;gap:12px;margin-top:20px}.memo-row{display:flex;flex-direction:column;text-align:left;gap:8px;width:100%;color:var(--text);cursor:pointer;overflow-wrap:anywhere}.memo-row small,.memo-hint{color:var(--sub);font-size:.75rem;line-height:1.7}.folder-title{overflow-wrap:anywhere}.memo-toolbar{display:flex;flex-wrap:wrap;gap:6px;background:var(--mist);padding:10px;border-radius:14px 14px 0 0}.memo-toolbar button{background:white;border:1px solid var(--line);padding:8px;border-radius:8px;color:var(--forest);min-height:40px;cursor:pointer;font-size:.75rem}.memo-editor{background:white;border:1px solid var(--line);border-radius:0 0 14px 14px;min-height:320px;padding:16px;line-height:1.9;overflow-wrap:anywhere}.memo-editor:focus{outline:2px solid var(--sage);outline-offset:2px}.memo-editor :deep(img){max-width:100%;height:auto;border-radius:8px}.memo-editor :deep(blockquote){border-left:3px solid var(--sage);margin-left:0;padding-left:14px;color:var(--sub)}button:disabled{opacity:.5;cursor:wait}
+.memos-page{padding-bottom:100px}
+.folder-menu{position:relative;margin-left:auto}
+.folder-menu-trigger{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--forest);cursor:pointer}
+.folder-menu-panel{position:absolute;right:0;top:calc(100% + 6px);z-index:22;min-width:180px;padding:6px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 10px 30px #183d3520}
+.folder-menu-panel button{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:10px 12px;border:0;border-radius:10px;background:transparent;color:var(--text);font:inherit;font-size:.82rem;text-align:left;white-space:nowrap;cursor:pointer}
+.folder-menu-panel button:hover{background:var(--mist)}
+.folder-menu-panel .folder-menu-delete{color:#b34141}
+.folder-menu button:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+.memo-fab{position:fixed;z-index:21;right:max(18px,env(safe-area-inset-right,0px),calc((100vw - var(--app-width))/2 + 18px));bottom:calc(100px + env(safe-area-inset-bottom,0px));display:grid;place-items:center;width:56px;height:56px;border:1px solid rgba(255,255,255,.5);border-radius:20px;background:var(--gradient-action);color:white;box-shadow:0 8px 24px rgba(36,74,61,.25);cursor:pointer;transition:transform .18s}
+.memo-fab:active{transform:scale(.94)}.memo-fab :deep(svg){width:26px;height:26px}
+.memo-create-dialog{width:min(400px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--line);border-radius:24px;padding:22px;background:var(--surface);color:var(--text);box-shadow:0 24px 80px #183d3540}
+.memo-create-dialog::backdrop{background:rgba(25,45,39,.4);backdrop-filter:blur(4px)}
+.create-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.create-heading h2{margin:0;font-size:1.15rem}
+.create-close{display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--sub);cursor:pointer}
+.create-options{display:flex;gap:6px;padding:4px;margin:14px 0;background:var(--mist);border-radius:14px}.create-options button{flex:1;min-height:44px;border:0;border-radius:10px;background:transparent;color:var(--sub);font-size:.82rem;cursor:pointer}.create-options button[aria-pressed=true]{background:white;color:var(--forest);box-shadow:0 2px 8px #183d3510;font-weight:700}
+.memo-create-dialog .memo-label input,.memo-create-dialog .memo-label select{font-size:16px}
+.create-actions{display:flex;gap:10px;margin-top:24px}.create-actions button{flex:1;min-height:48px;min-width:0;font-size:.82rem!important;border-radius:14px;cursor:pointer}
+.memo-fab:focus-visible,.memo-create-dialog :is(input,select,button):focus-visible{outline:2px solid var(--sage);outline-offset:3px}
 </style>
