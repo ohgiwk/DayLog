@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import AppIcon from "./components/AppIcon.vue"
 
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
+import { authRedirect, isAuthPath } from './lib/auth-navigation'
 import { account } from './stores/account'
 import { scheduleSync, setEditingCheck, startSync, syncState } from './lib/diary-sync'
 import { RouterView, useRoute, useRouter } from 'vue-router'
@@ -10,11 +11,15 @@ import UpdateNotice from './components/UpdateNotice.vue'
 import { saveSettings, settings } from './stores/diary'
 saveSettings()
 const route=useRoute(), router=useRouter()
+const authScreen = computed(() => isAuthPath(route.path))
 setEditingCheck(() => route.path === '/journal' || route.path.startsWith('/entry/'))
 startSync()
 watch(() => account.user?.id, () => { syncState.error = ''; syncState.lastSynced = ''; scheduleSync() })
 watch(() => route.path, scheduleSync)
-watch(() => account.recovery, value => { if (value) void router.replace('/settings') }, { immediate: true })
+watch(() => [account.ready, account.user?.id, account.recovery], () => {
+ const target = authRedirect(route, { ready: account.ready, signedIn: !!account.user, recovery: account.recovery })
+ if (target) void router.replace(target)
+}, { immediate: true })
 function animateTab(event: MouseEvent) {
  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return
  if (settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -34,16 +39,16 @@ function animateTab(event: MouseEvent) {
  <div class="app-shell">
   <UpdateNotice />
   <DeleteConfirmation />
-  <main v-if="account.ready">
-   <RouterLink v-if="account.user && (syncState.error || syncState.conflicts.length)" to="/settings" class="sync-notice">{{ syncState.conflicts.length ? '別の端末の変更と重複しています。設定で確認' : '未同期の変更があります。設定で確認' }}</RouterLink>
-   <RouterView v-slot="{ Component, route: currentRoute }">
+  <main v-if="account.ready" :class="{ 'auth-main': authScreen }">
+   <RouterLink v-if="!authScreen && account.user && (syncState.error || syncState.conflicts.length)" to="/settings" class="sync-notice">{{ syncState.conflicts.length ? '別の端末の変更と重複しています。設定で確認' : '未同期の変更があります。設定で確認' }}</RouterLink>
+   <RouterView v-if="account.user || authScreen" v-slot="{ Component, route: currentRoute }">
     <Transition name="page-fade" mode="out-in">
      <component :is="Component" :key="`${account.user?.id ?? 'guest'}:${currentRoute.fullPath}`" />
     </Transition>
    </RouterView>
   </main>
   <p v-else class="page" role="alert">{{ account.error || 'ログイン状態を確認しています…' }}</p>
-  <nav v-if="route.path!='/journal'" class="tabbar" aria-label="メインメニュー" @click="animateTab">
+  <nav v-if="account.ready && account.user && !authScreen && route.path!='/journal'" class="tabbar" aria-label="メインメニュー" @click="animateTab">
    <RouterLink to="/" aria-label="ホーム"><span><AppIcon name="home" /></span><small>ホーム</small></RouterLink>
    <RouterLink to="/records" aria-label="記録"><span><AppIcon name="records" /></span><small>記録</small></RouterLink>
    <RouterLink to="/journal" class="write-tab" aria-label="日記を書く"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></span><small>日記を書く</small></RouterLink>
@@ -54,5 +59,6 @@ function animateTab(event: MouseEvent) {
 </template>
 
 <style scoped>
+.auth-main{padding-bottom:0}
 .sync-notice{display:block;padding:12px 22px;background:#fff2dc;color:#77551e;font-size:.78rem;line-height:1.5;text-decoration:none}
 </style>

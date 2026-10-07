@@ -7,6 +7,8 @@ import './theme.css'
 async function start() {
  await initializeAccount()
  const [{ default: App }, { router }] = await Promise.all([import('./App.vue'), import('./router')])
- createApp(App).use(router).mount('#app')
+ const app = createApp(App).use(router)
+ await router.isReady()
+ app.mount('#app')
 }
 void start()
