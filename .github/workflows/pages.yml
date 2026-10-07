@@ -29,6 +29,10 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build -- --base=/DayLog/
+        env:
+          # Public browser credentials. Row-level policies protect each account's data.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://twrpxwrznilnnxsfklir.supabase.co' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pdd4OW-f2rGet0R5TLVAPg_-j9G4P1S' }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -1,0 +1,5 @@
+project_id = "DayLog"
+
+[auth]
+site_url = "https://ohgiwk.github.io/DayLog/"
+additional_redirect_urls = ["https://ohgiwk.github.io/DayLog/", "http://127.0.0.1:5176/", "http://localhost:5176/"]

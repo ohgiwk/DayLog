@@ -4,7 +4,7 @@ import AppIcon from "./AppIcon.vue"
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import type { DiaryEntry } from '../types'
-import { saveEntry, deleteEntry } from '../stores/diary'
+import { diaryScope, saveEntry, deleteEntry } from '../stores/diary'
 import { compressImage, imageRepository } from '../lib/image-repository'
 import { confirmDelete } from '../lib/delete-confirmation'
 import TrashIcon from './TrashIcon.vue'
@@ -12,6 +12,8 @@ import { baseQuestions, activityQuestions } from '../data/questions'
 import { editAnswer } from '../lib/edit-answer'
 const props = defineProps<{ initial: DiaryEntry; isNew?: boolean }>()
 const emit = defineEmits<{ deleted: [] }>()
+const owner = diaryScope.userId, ownerGeneration = diaryScope.generation
+const sameOwner = () => owner === diaryScope.userId && ownerGeneration === diaryScope.generation
 const draft = reactive<DiaryEntry>(JSON.parse(JSON.stringify(props.initial)))
 const questions = computed(() => [...baseQuestions, ...activityQuestions].filter(q => !q.when || q.when(draft.answers)))
 const answerSaved = ref(false)
@@ -25,6 +27,7 @@ const saveError = ref(''), photoError = ref(''), busy = ref(false), lightbox = r
 let unsaved = false, disposed = false, deleted = false, changingPhoto = false
 let pending: Promise<void> | undefined
 function save() {
+ if (!sameOwner()) return false
  if (deleted) return true
  try {
   saveEntry({ ...draft, answers: { ...draft.answers }, tags: [...draft.tags], imageIds: [...draft.imageIds], updatedAt: new Date().toISOString() })
@@ -57,7 +60,9 @@ function addFiles(event: Event) {
    try {
     if (!file.type.startsWith('image/')) throw new Error('Unsupported image')
     const blob = await compressImage(file), id = crypto.randomUUID()
-    await imageRepository.put({ id, entryId: draft.id, blob, type: blob.type, createdAt: new Date().toISOString() })
+    if (disposed || !sameOwner()) return
+    await imageRepository.put({ id, entryId: draft.id, blob, type: blob.type, createdAt: new Date().toISOString() }, owner)
+    if (disposed || !sameOwner()) return
     // Publish the image reference only after its transaction has committed.
     draft.imageIds.push(id)
     photos.value.push({ id, url: URL.createObjectURL(blob) })
@@ -69,6 +74,7 @@ function addFiles(event: Event) {
 }
 async function removePhoto(id: string) {
  if (busy.value || !await confirmDelete({ title: '写真を削除しますか？', message: 'この写真を日記から削除します。削除すると元に戻せません。' })) return
+ if (disposed || !sameOwner()) return
  const previous = [...draft.imageIds], thumbnail = draft.thumbnailImageId
  changingPhoto = true
  draft.imageIds = draft.imageIds.filter(value => value !== id)
@@ -81,10 +87,11 @@ async function removePhoto(id: string) {
  if (photo) URL.revokeObjectURL(photo.url)
  photos.value = photos.value.filter(p => p.id !== id)
  // Cleanup follows the durable entry update; failure must not undo the user's edit.
- void imageRepository.delete(id).catch(() => {})
+ void imageRepository.delete(id, owner).catch(() => {})
 }
 async function removeDiary() {
  if (busy.value || !await confirmDelete({ title: '日記を削除しますか？', message: 'この日の日記と写真を削除します。削除すると元に戻せません。' })) return
+ if (disposed || !sameOwner()) return
  try { await deleteEntry(draft.id); deleted = true; unsaved = false; emit('deleted') }
  catch { saveError.value = '削除できませんでした。もう一度お試しください。' }
 }
