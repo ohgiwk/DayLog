@@ -1,16 +1,25 @@
 <script setup lang="ts">
 import AppIcon from "./AppIcon.vue"
 
-import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import type { DiaryEntry } from '../types'
 import { saveEntry, deleteEntry } from '../stores/diary'
 import { compressImage, imageRepository } from '../lib/image-repository'
 import { confirmDelete } from '../lib/delete-confirmation'
 import TrashIcon from './TrashIcon.vue'
+import { baseQuestions, activityQuestions } from '../data/questions'
+import { editAnswer } from '../lib/edit-answer'
 const props = defineProps<{ initial: DiaryEntry; isNew?: boolean }>()
 const emit = defineEmits<{ deleted: [] }>()
 const draft = reactive<DiaryEntry>(JSON.parse(JSON.stringify(props.initial)))
+const questions = computed(() => [...baseQuestions, ...activityQuestions].filter(q => !q.when || q.when(draft.answers)))
+const answerSaved = ref(false)
+function changeAnswer(id: string, event: Event) {
+ const value = (event.target as HTMLSelectElement).value
+ Object.assign(draft, editAnswer(draft, id, value))
+ answerSaved.value = save()
+}
 const photos = ref<{id: string; url: string}[]>([])
 const saveError = ref(''), photoError = ref(''), busy = ref(false), lightbox = ref('')
 let unsaved = false, disposed = false, deleted = false, changingPhoto = false
@@ -100,9 +109,31 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
   <div v-if="photos.length" class="detail-gallery"><div v-for="photo in photos" :key="photo.id" class="gallery-image" :class="{selected:draft.thumbnailImageId===photo.id}"><img :src="photo.url" alt="日記の写真" @click="lightbox=photo.url"><button :disabled="busy" aria-label="写真を削除" title="写真を削除" @click="removePhoto(photo.id)"><TrashIcon /></button><button @click="draft.thumbnailImageId=photo.id"><AppIcon v-if="draft.thumbnailImageId===photo.id" name="check" />{{draft.thumbnailImageId===photo.id?'代表写真':'代表にする'}}</button></div></div>
   <div v-if="draft.imageIds.length<5" class="photo-actions"><label class="outline-button"><AppIcon name="plus" /> 写真を選ぶ<input type="file" accept="image/*" multiple :disabled="busy" @change="addFiles"></label><label class="outline-button"><AppIcon name="camera" /> カメラ<input type="file" accept="image/*" capture="environment" :disabled="busy" @change="addFiles"></label></div>
   <p v-if="photoError" class="error" role="alert">{{photoError}}</p>
+  <details v-if="!isNew" class="soft-card diary-answers">
+   <summary>質問への回答</summary>
+   <p class="answer-help">選び直すと自動保存されます。</p>
+   <label v-for="question in questions" :key="question.id" class="answer-field">
+    <span>{{ question.prompt }}</span>
+    <select :value="draft.answers[question.id] ?? ''" @change="changeAnswer(question.id, $event)">
+     <option value="">未回答</option>
+     <option v-if="draft.answers[question.id] && draft.answers[question.id] !== 'skip' && !question.options.some(o => o.value === draft.answers[question.id])" :value="draft.answers[question.id]" disabled>以前の回答（選び直せます）</option>
+     <option v-for="option in question.options" :key="option.value" :value="option.value">{{ option.icon }} {{ option.label }}</option>
+     <option value="skip">スキップ</option>
+    </select>
+   </label>
+   <p v-if="answerSaved && !saveError" class="answer-help" role="status">回答を保存しました。</p>
+  </details>
   <div v-if="lightbox" class="lightbox" @click="lightbox=''"><img :src="lightbox" alt="拡大した日記の写真"><button aria-label="画像を閉じる"><AppIcon name="close" /></button></div>
  </div>
 </template>
 <style scoped>
 .editor-status{display:flex;align-items:center;justify-content:space-between;gap:12px}.editor-status p{font-size:.75rem;color:var(--sub)}.diary-editor>label{display:flex;flex-direction:column;gap:8px;margin:20px 0;font-size:.8rem;font-weight:700}.diary-editor>label small{font-weight:400;color:var(--sub)}.diary-editor textarea,.diary-editor>label input{width:100%;padding:15px;border:1px solid var(--line);border-radius:18px;background:white;color:var(--text)}.diary-editor textarea:focus-visible,.diary-editor input:focus-visible{outline:2px solid var(--sage)}.photo-heading{font-size:.8rem;margin-bottom:12px}.photo-actions{margin-top:12px}.diary-editor button:disabled{opacity:.5;cursor:wait}
+.diary-answers{margin-top:20px;padding:10px 14px;background:white;border-radius:16px}
+.diary-answers summary{cursor:pointer;font-size:.9rem;font-weight:700;line-height:1.6;padding:10px 0}
+.answer-help{margin:2px 0 8px;font-size:.72rem;color:var(--sub);line-height:1.5}
+.answer-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:10px;padding:5px 0;font-size:.75rem;line-height:1.5}
+.answer-field>span{overflow-wrap:anywhere}
+.answer-field+.answer-field{border-top:1px solid var(--line)}
+.answer-field select{width:100%;min-width:0;min-height:44px;padding:8px 4px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--text);font:inherit}
+.answer-field select:focus-visible,.diary-answers summary:focus-visible{outline:2px solid var(--sage);outline-offset:3px}
 </style>
