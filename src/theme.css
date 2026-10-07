@@ -123,3 +123,50 @@
 .entry-row > b .app-icon { width: 14px; height: 20px; }
 .answer-grid button > span { display: grid; place-items: center; }
 .gallery-image > button:first-of-type { display: grid; place-items: center; padding: 0; }
+
+/* Touch feedback and a soft selected-tab highlight. */
+.tabbar a {
+  border-radius: 16px;
+  transition: color 180ms ease;
+  touch-action: manipulation;
+}
+.tabbar a:not(.write-tab) > span {
+  position: relative;
+  isolation: isolate;
+  width: 48px;
+  border-radius: 14px;
+  transition: transform 140ms ease;
+}
+.tabbar a:not(.write-tab) > span::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--gradient-card);
+  opacity: 0;
+  transform: scale(.75);
+  transition: opacity 200ms ease, transform 260ms cubic-bezier(.2,.8,.2,1);
+}
+.tabbar a:not(.write-tab).router-link-active > span::before {
+  opacity: 1;
+  transform: scale(1);
+}
+.tabbar a:not(.write-tab):active > span { transform: scale(.82); }
+.tabbar a svg { transform-origin: center; }
+.tabbar a:focus-visible { outline: 2px solid var(--forest); outline-offset: 2px; }
+@media (hover: hover) {
+  .tabbar a:not(.write-tab):hover > span::before { opacity: .65; transform: scale(1); }
+}
+.reduce-motion .tabbar a:active > span { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .tabbar a, .tabbar a > span, .tabbar a > span::before { transition: none; }
+  .tabbar a:active > span { transform: none; }
+}
+.reduce-motion .tabbar a > span::before { transition: none; }
+
+.tabbar .write-tab:active span { transform: scale(.86); }
+.reduce-motion .tabbar .write-tab:active span { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .tabbar .write-tab:active span { transform: none; }
+}

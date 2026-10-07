@@ -7,6 +7,20 @@ import UpdateNotice from './components/UpdateNotice.vue'
 import { saveSettings, settings } from './stores/diary'
 saveSettings()
 const route=useRoute()
+function animateTab(event: MouseEvent) {
+ if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return
+ if (settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+ const target = event.target instanceof Element ? event.target.closest('a') : null
+ const icon = target?.querySelector('svg')
+ if (!icon) return
+ icon.getAnimations().forEach(animation => animation.cancel())
+ icon.animate([
+  { transform: 'translateY(0) scale(.75)' },
+  { transform: 'translateY(-6px) scale(1.22)', offset: .4 },
+  { transform: 'translateY(1px) scale(.96)', offset: .75 },
+  { transform: 'translateY(0) scale(1)' },
+ ], { duration: 440, easing: 'cubic-bezier(.2,.7,.3,1)' })
+}
 </script>
 <template>
  <div class="app-shell">
@@ -19,7 +33,7 @@ const route=useRoute()
     </Transition>
    </RouterView>
   </main>
-  <nav v-if="route.path!='/journal'" class="tabbar" aria-label="メインメニュー">
+  <nav v-if="route.path!='/journal'" class="tabbar" aria-label="メインメニュー" @click="animateTab">
    <RouterLink to="/" aria-label="ホーム"><span><AppIcon name="home" /></span><small>ホーム</small></RouterLink>
    <RouterLink to="/records" aria-label="記録"><span><AppIcon name="records" /></span><small>記録</small></RouterLink>
    <RouterLink to="/journal" class="write-tab" aria-label="日記を書く"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></span><small>日記を書く</small></RouterLink>
