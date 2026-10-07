@@ -1,5 +1,7 @@
 :root {
   --app-width: 430px;
+  --page-left: max(22px, env(safe-area-inset-left, 0px));
+  --page-right: max(22px, env(safe-area-inset-right, 0px));
   color-scheme: light;
 }
 
@@ -12,8 +14,7 @@ body {
   width: 100%;
   max-width: var(--app-width);
   padding-top: env(safe-area-inset-top, 0px);
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
+
 }
 
 main {
@@ -52,5 +53,39 @@ main {
   }
 }
 
-.tabbar { padding-left: 6px; padding-right: 6px; }
+.tabbar { padding-left: max(6px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
 .tabbar a { min-width: 0; flex: 1; }
+
+/* Keep edge-to-edge backgrounds while protecting controls beside the notch. */
+.page,
+.journal-page {
+  padding-left: var(--page-left);
+  padding-right: var(--page-right);
+}
+.home-hero {
+  margin-left: calc(-1 * var(--page-left));
+  margin-right: calc(-1 * var(--page-right));
+  padding-left: calc(var(--page-left) + 6px);
+  padding-right: calc(var(--page-right) + 6px);
+}
+.app-shell::before {
+  content: '';
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(var(--app-width), 100%);
+  height: env(safe-area-inset-top, 0px);
+  background: var(--status-bar);
+  pointer-events: none;
+}
+.app-shell > main {
+  min-height: calc(100dvh - env(safe-area-inset-top, 0px));
+}
+@media (max-width: 767px), (display-mode: standalone), (display-mode: fullscreen) {
+  :root { --app-width: 100%; }
+  body { padding: 0; }
+  .app-shell { border-radius: 0; box-shadow: none; }
+  .tabbar { bottom: 0; border-radius: 0; }
+}
