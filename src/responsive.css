@@ -5,16 +5,23 @@
   color-scheme: light;
 }
 
-html,
+/* Keep the viewport behind iOS overscroll the same color as the safe area. */
+html {
+  background: var(--status-bar, #deeee7);
+  overscroll-behavior-y: none;
+}
+
 body {
   background: var(--paper);
+  overscroll-behavior-y: none;
 }
 
 .app-shell {
   width: 100%;
   max-width: var(--app-width);
   padding-top: env(safe-area-inset-top, 0px);
-
+  /* This padding scrolls with the page; match the fixed status-bar overlay. */
+  background: linear-gradient(var(--status-bar), var(--status-bar)) top / 100% env(safe-area-inset-top, 0px) no-repeat, var(--paper);
 }
 
 main {
