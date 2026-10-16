@@ -2,11 +2,12 @@
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { startUpdateChecks } from '../lib/app-update'
+import { prepareAppUpdate, startUpdateChecks } from '../lib/app-update'
 
 const route = useRoute()
 const latest = ref<string | null>(null)
 const dismissed = ref<string | null>(null)
+const updating = ref(false), updateError = ref('')
 const editing = computed(() => route.path === '/journal' || route.path.startsWith('/entry/'))
 let stop: (() => void) | undefined
 onMounted(() => {
@@ -15,11 +16,16 @@ onMounted(() => {
  }
 })
 onBeforeUnmount(() => stop?.())
-function update() {
- if (editing.value || !latest.value) return
- const url = new URL(window.location.href)
- url.searchParams.set('_update', latest.value)
- window.location.replace(url.href)
+async function update() {
+ if (editing.value || !latest.value || updating.value) return
+ updating.value = true; updateError.value = ''
+ try {
+  const target = await prepareAppUpdate(window.location.href, latest.value)
+  window.location.replace(target)
+ } catch {
+  updateError.value = '更新を取得できませんでした。通信を確認して、もう一度お試しください。'
+  updating.value = false
+ }
 }
 </script>
 
@@ -29,9 +35,10 @@ function update() {
    <strong>新しいバージョンが利用できます</strong>
    <p>{{ editing ? '日記を保存してホームに戻ると更新できます。' : '更新すると、新しい機能や改善が反映されます。' }}</p>
   </div>
+  <p v-if="updateError" role="alert">{{ updateError }}</p>
   <div class="update-actions">
-   <button type="button" class="update-later" @click="dismissed = latest">あとで</button>
-   <button type="button" class="update-now" :disabled="editing" @click="update">更新する</button>
+   <button type="button" class="update-later" :disabled="updating" @click="dismissed = latest">あとで</button>
+   <button type="button" class="update-now" :disabled="editing || updating" @click="update">{{ updating ? '更新中…' : '更新する' }}</button>
   </div>
  </aside>
 </template>

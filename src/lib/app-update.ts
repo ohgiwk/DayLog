@@ -1,3 +1,22 @@
+// Refresh the launch URL too, so reopening a home-screen app does not reuse old HTML.
+export async function prepareAppUpdate(href: string, buildId: string): Promise<string> {
+ const launch = new URL(href)
+ launch.hash = ''
+ launch.searchParams.delete('_update')
+ launch.searchParams.delete('_reload')
+ const controller = new AbortController()
+ const timeout = setTimeout(() => controller.abort(), 10000)
+ try {
+  const response = await fetch(launch.href, { cache: 'reload', signal: controller.signal })
+  if (!response.ok) throw new Error('update_fetch_failed')
+  await response.text()
+ } finally { clearTimeout(timeout) }
+ const target = new URL(href)
+ target.searchParams.set('_update', buildId)
+ target.searchParams.set('_reload', crypto.randomUUID())
+ return target.href
+}
+
 // A failed check is deliberately silent; the next interval or focus retries it.
 export async function fetchBuildId(base: string, signal: AbortSignal): Promise<string | null> {
  try {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchBuildId, startUpdateChecks } from './app-update'
+import { fetchBuildId, prepareAppUpdate, startUpdateChecks } from './app-update'
 
 let page: EventTarget & { visibilityState: string }
 let browser: EventTarget
@@ -86,3 +86,28 @@ describe('update checks', () => {
   expect(notify).not.toHaveBeenCalled()
  })
 })
+
+ describe('app update navigation', () => {
+  it('refreshes the launch cache and uses a new URL on every retry while preserving the route', async () => {
+   request.mockResolvedValue({ ok: true, text: async () => '<html></html>' })
+   const first = await prepareAppUpdate('https://example.com/DayLog/?_update=new&_reload=old#/settings', 'new')
+   const second = await prepareAppUpdate(first, 'new')
+   expect(request).toHaveBeenCalledWith('https://example.com/DayLog/', expect.objectContaining({ cache: 'reload' }))
+   expect(new URL(first).hash).toBe('#/settings')
+   expect(new URL(first).searchParams.get('_update')).toBe('new')
+   expect(first).not.toBe(second)
+  })
+  it('fails without navigating when the new page cannot be downloaded', async () => {
+   request.mockResolvedValueOnce({ ok: false }).mockRejectedValueOnce(new Error('offline'))
+   await expect(prepareAppUpdate('https://example.com/DayLog/', 'new')).rejects.toThrow()
+   await expect(prepareAppUpdate('https://example.com/DayLog/', 'new')).rejects.toThrow('offline')
+  })
+  it('times out a stalled update so it can be retried', async () => {
+   request.mockImplementation((_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => reject(new Error('aborted')))
+   }))
+   const result = expect(prepareAppUpdate('https://example.com/DayLog/', 'new')).rejects.toThrow('aborted')
+   await vi.advanceTimersByTimeAsync(10000)
+   await result
+  })
+ })
