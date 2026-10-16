@@ -16,6 +16,7 @@ const paths: Record<string, string> = {
  'chevron-left':'m15 5-7 7 7 7', 'chevron-right':'m9 5 7 7-7 7',
  'arrow-right':'M4 12h16m-6-6 6 6-6 6', plus:'M12 5v14M5 12h14', close:'m6 6 12 12M6 18 18 6', check:'m5 12 4 4L19 6',
  home:'m3 10 9-7 9 7v10H3V10m6 10v-7h6v7', records:'M5 3h14v18H5V3m3 5h8M8 12h8M8 16h8',
+ 'notebook-pen':'M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6M7 3v18M10 16l1-4L19 4a2.1 2.1 0 0 1 3 3l-8 8-4 1ZM17 6l3 3',
  note:'M5 3h10l4 4v14H5V3m10 0v5h4M8 12h8M8 16h6',
  chart:'M12 3v9h9M9 3.5a9 9 0 1 0 11.5 11.5',
  settings:'m9 3-.5 3-2 1-2.8-1-2 3.5L4 11v2l-2.3 1.5 2 3.5 2.8-1 2 1 .5 3h6l.5-3 2-1 2.8 1 2-3.5L20 13v-2l2.3-1.5-2-3.5-2.8 1-2-1L15 3H9m6 9a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
