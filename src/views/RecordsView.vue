@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import EntryThumbnail from '../components/EntryThumbnail.vue'
-import { entries } from '../stores/diary'
+import { entries, settings } from '../stores/diary'
 import { calendarDays, dateKey, moveCalendar, type CalendarMode } from '../lib/records-calendar'
 
 const mode = ref<CalendarMode>('week')
@@ -16,7 +16,77 @@ const title = computed(() => {
  const first = cells.value[0]!, last = cells.value[6]!
  return `${first.getFullYear()}年 ${dayFormat.format(first)}〜${first.getFullYear() !== last.getFullYear() ? last.getFullYear() + '年 ' : ''}${dayFormat.format(last)}`
 })
-function move(direction: number) { anchor.value = moveCalendar(anchor.value, mode.value, direction) }
+const viewport = ref<HTMLElement>()
+const track = ref<HTMLElement>()
+const offset = ref(0), dragging = ref(false), settling = ref(false)
+const panels = computed(() => [-1, 0, 1].map(direction => ({
+ direction,
+ days: calendarDays(direction ? moveCalendar(anchor.value, mode.value, direction) : anchor.value, mode.value),
+})))
+const calendarHeight = computed(() => (dragging.value || settling.value
+ ? Math.max(...panels.value.map(panel => panel.days.length)) : cells.value.length) / 7 * 48)
+let pointer: number | null = null, startX = 0, startY = 0, suppressClickUntil = 0
+let animation: Animation | undefined
+let generation = 0
+function resetGesture() {
+ generation++
+ animation?.cancel(); animation = undefined
+ if (pointer !== null && viewport.value?.hasPointerCapture(pointer)) viewport.value.releasePointerCapture(pointer)
+ pointer = null; dragging.value = false; settling.value = false; offset.value = 0
+}
+async function move(direction: number) {
+ if (settling.value) return
+ const width = viewport.value?.clientWidth || 0
+ if (!track.value || !width) return
+ const token = generation
+ settling.value = true; dragging.value = false
+ const reduced = settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+ const effect = track.value.animate([
+  { transform: `translateX(calc(-100% + ${offset.value}px))` },
+  { transform: `translateX(calc(-100% + ${-direction * width}px))` },
+ ], { duration: reduced ? 0 : 260, easing: 'cubic-bezier(.22, 1, .36, 1)', fill: 'forwards' })
+ animation = effect
+ try { await effect.finished } catch { return }
+ if (token !== generation) return
+ if (direction) anchor.value = moveCalendar(anchor.value, mode.value, direction)
+ offset.value = 0
+ await nextTick()
+ effect.cancel(); animation = undefined; settling.value = false
+}
+function pointerDown(event: PointerEvent) {
+ if (!event.isPrimary || event.button !== 0 || settling.value || pointer !== null) return
+ pointer = event.pointerId; startX = event.clientX; startY = event.clientY
+}
+function pointerMove(event: PointerEvent) {
+ if (pointer !== event.pointerId || settling.value) return
+ const dx = event.clientX - startX, dy = event.clientY - startY
+ if (!dragging.value) {
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return
+  if (Math.abs(dy) >= Math.abs(dx)) { pointer = null; return }
+  dragging.value = true
+  viewport.value?.setPointerCapture(event.pointerId)
+ }
+ const width = viewport.value?.clientWidth || 0
+ offset.value = Math.max(-width, Math.min(width, dx))
+ event.preventDefault()
+}
+function pointerLeave() {
+ if (!dragging.value) pointer = null
+}
+function pointerEnd(event: PointerEvent) {
+ if (pointer !== event.pointerId) return
+ pointer = null
+ if (!dragging.value) return
+ suppressClickUntil = Date.now() + 400
+ const threshold = Math.min(72, (viewport.value?.clientWidth || 0) * .2)
+ const direction = event.type !== 'pointerup' ? 0 : Math.abs(offset.value) >= threshold ? (offset.value < 0 ? 1 : -1) : 0
+ void move(direction)
+}
+function preventSwipeClick(event: MouseEvent) {
+ if (Date.now() < suppressClickUntil) { event.preventDefault(); event.stopPropagation() }
+}
+watch(mode, resetGesture, { flush: 'sync' })
+onBeforeUnmount(resetGesture)
 function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 </script>
 
@@ -38,14 +108,17 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
      <button type="button" :aria-label="mode === 'month' ? '次の月' : '次の週'" @click="move(1)"><AppIcon name="chevron-right" /></button>
     </div>
     <div class="week" aria-hidden="true"><span v-for="day in ['日','月','火','水','木','金','土']" :key="day">{{ day }}</span></div>
-    <div class="calendar-days" :style="{ height: `${cells.length / 7 * 48}px` }">
-    <div class="days">
-     <span v-for="(day, index) in cells" :key="day ? dateKey(day) : `blank-${index}`" :class="{ written: day && entryOn(day) }">
+    <div ref="viewport" class="calendar-days" :class="{ dragging }" :style="{ height: `${calendarHeight}px` }"
+     @pointerdown="pointerDown" @pointermove="pointerMove" @pointerleave="pointerLeave" @pointerup="pointerEnd" @pointercancel="pointerEnd" @lostpointercapture="pointerEnd" @click.capture="preventSwipeClick" @dragstart.prevent>
+    <div ref="track" class="calendar-track" :style="{ transform: `translateX(calc(-100% + ${offset}px))` }">
+    <div v-for="panel in panels" :key="panel.direction" class="days calendar-panel" :aria-hidden="panel.direction !== 0 ? true : undefined" :inert="panel.direction !== 0">
+     <span v-for="(day, index) in panel.days" :key="day ? dateKey(day) : `blank-${index}`" :class="{ written: day && entryOn(day) }">
       <template v-if="day">
        <RouterLink v-if="entryOn(day)" :to="`/entry/${entryOn(day)!.id}`" :aria-label="`${dateKey(day)}の日記`" :aria-current="dateKey(day) === dateKey(new Date()) ? 'date' : undefined">{{ day.getDate() }}<i></i></RouterLink>
        <b v-else :aria-label="dateKey(day)" :aria-current="dateKey(day) === dateKey(new Date()) ? 'date' : undefined">{{ day.getDate() }}</b>
       </template>
      </span>
+    </div>
     </div>
     </div>
    </section>
@@ -68,7 +141,10 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 .records-calendar { border-top: 1px solid rgba(82,110,101,.16); padding-top: 8px; }
 .month-nav h2 { font-size: .95rem; text-align: center; }
 .month-nav button { flex-shrink: 0; }
-.calendar-days { overflow: hidden; transition: height 300ms cubic-bezier(.22, 1, .36, 1); }
+.calendar-days { touch-action: pan-y pinch-zoom; user-select: none; cursor: grab; overflow: hidden; transition: height 300ms cubic-bezier(.22, 1, .36, 1); }
+.calendar-days.dragging { cursor: grabbing; }
+.calendar-track { display: flex; width: 100%; align-items: flex-start; }
+.calendar-panel { flex: 0 0 100%; min-width: 0; }
 .days > span { height: 48px; }
 :global(.reduce-motion) .calendar-days { transition: none; }
 @media (prefers-reduced-motion: reduce) {
