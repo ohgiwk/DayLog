@@ -96,3 +96,14 @@ main {
   .app-shell { border-radius: 0; box-shadow: none; }
   .tabbar { bottom: 0; border-radius: 0; }
 }
+
+/* Hide scrollbars without disabling scrolling on pages or nested panels. */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
