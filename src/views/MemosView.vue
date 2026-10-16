@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import LegacyMemoImport from '../components/LegacyMemoImport.vue'
+import { setMemoEditingCheck, scheduleMemoSync } from '../lib/memo-sync'
 import AppIcon from "../components/AppIcon.vue"
 
 import { confirmDelete } from '../lib/delete-confirmation'
 import TrashIcon from '../components/TrashIcon.vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
-import { accessLibrary, type MemoLibrary, type Memo } from '../lib/memo-repository'
+import { accessLibrary, memoOwner, onMemoChange, type MemoLibrary, type Memo } from '../lib/memo-repository'
 import { splitMemoContent } from '../lib/memo-html'
 import { compressImage } from '../lib/image-repository'
 const formatGroups: { label: string; items: { label: string; icon: string; command: string; value?: string }[] }[] = [
@@ -28,6 +30,8 @@ const formatGroups: { label: string; items: { label: string; icon: string; comma
   { label: 'やり直す', icon: 'redo', command: 'redo' },
  ] },
 ]
+const owner = memoOwner()
+let disposed = false, loadSequence = 0
 const library = ref<MemoLibrary>({ folders: [], notes: [] })
 const loadFailed = ref(false)
 const loading = ref(true), busy = ref(false), error = ref(''), status = ref('')
@@ -100,11 +104,22 @@ async function createItem() {
 const folder = computed(() => library.value.folders.find(f => f.id === folderId.value))
 const notes = computed(() => library.value.notes.filter(n => n.folderId === folderId.value).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)))
 let selection: Range | null = null
-onMounted(async () => { try { library.value = await accessLibrary() } catch { loadFailed.value = true; error.value = 'メモを読み込めませんでした。画面を開き直してください。' } finally { loading.value = false } })
+async function reloadLibrary() {
+ const sequence = ++loadSequence
+ try {
+  const value = await accessLibrary(undefined, owner)
+  if (!disposed && memoOwner() === owner && sequence === loadSequence && !draft.value && !dialogOpen.value && !busy.value) library.value = value
+ } catch { if (!disposed) { loadFailed.value = true; error.value = 'メモを読み込めませんでした。画面を開き直してください。' } }
+ finally { loading.value = false }
+}
+setMemoEditingCheck(() => !!draft.value || dialogOpen.value || busy.value)
+const stopMemoChanges = onMemoChange(id => { if (id === owner && !draft.value && !dialogOpen.value && !busy.value) void reloadLibrary() })
+watch(() => !!draft.value || dialogOpen.value || busy.value, active => { if (!active) { void reloadLibrary(); scheduleMemoSync() } })
+onMounted(reloadLibrary)
 async function commit(value: MemoLibrary) {
  busy.value = true; error.value = ''
- try { await accessLibrary(value); library.value = value; return true }
- catch { error.value = '保存できませんでした。端末の空き容量やブラウザの保存設定を確認して、もう一度お試しください。'; return false }
+ try { const saved = await accessLibrary(value, owner, JSON.parse(JSON.stringify(library.value))); if (disposed || memoOwner() !== owner) return false; library.value = saved; return true }
+ catch (failure) { error.value = failure instanceof Error && failure.message === 'memo_local_conflict' ? '別の画面でこのメモが変更されています。入力内容を控えて、一覧から開き直してください。' : '保存できませんでした。端末の空き容量やブラウザの保存設定を確認して、もう一度お試しください。'; return false }
  finally { busy.value = false }
 }
 async function saveFolder() {
@@ -192,7 +207,7 @@ function beforeUnload(e: BeforeUnloadEvent) { if (dirty.value || busy.value) { e
 window.addEventListener('beforeunload', beforeUnload)
 document.addEventListener('pointerdown', dismissFolderMenu)
 document.addEventListener('keydown', escapeFolderMenu)
-onBeforeUnmount(() => { window.removeEventListener('beforeunload', beforeUnload); document.removeEventListener('pointerdown', dismissFolderMenu); document.removeEventListener('keydown', escapeFolderMenu); createDialog.value?.close() })
+onBeforeUnmount(() => { disposed = true; stopMemoChanges(); setMemoEditingCheck(() => false); scheduleMemoSync(); window.removeEventListener('beforeunload', beforeUnload); document.removeEventListener('pointerdown', dismissFolderMenu); document.removeEventListener('keydown', escapeFolderMenu); createDialog.value?.close() })
 onBeforeRouteLeave(() => !busy.value && discard())
 </script>
 
@@ -242,6 +257,7 @@ onBeforeRouteLeave(() => !busy.value && discard())
     <button class="primary-button full" :disabled="busy" @click="save">{{ busy ? '処理中…' : 'メモを保存' }}</button><p role="status" class="memo-hint">{{ status || (dirty ? '未保存の変更があります' : '') }}</p>
    </template>
    <template v-else>
+    <LegacyMemoImport />
     <div v-if="folder" class="memo-actions">
      <button class="outline-button" :disabled="busy" @click="closeFolderMenu();folderId='';folderName=''"><AppIcon name="chevron-left" /> フォルダ一覧</button>
      <div ref="folderMenu" class="folder-menu" @focusout="!folderMenu?.contains($event.relatedTarget as Node | null) && closeFolderMenu()">
@@ -256,7 +272,7 @@ onBeforeRouteLeave(() => !busy.value && discard())
     <template v-if="!folder"><p v-if="!library.folders.length" class="soft-card">右下の＋からフォルダを作って、最初のメモを残しましょう。</p><div class="memo-list"><button v-for="f in library.folders" :key="f.id" class="soft-card memo-row" :disabled="busy" @click="folderId=f.id;folderName='' "><b><AppIcon name="folder" /> {{ f.name }}</b><small>{{ library.notes.filter(n=>n.folderId===f.id).length }}件のメモ <AppIcon name="chevron-right" /></small></button></div></template>
     <template v-else><h2 class="folder-title">{{ folder.name }}</h2><p v-if="!notes.length" class="memo-hint">まだメモがありません。右下の＋から作成できます。</p><div class="memo-list"><button v-for="note in notes" :key="note.id" class="soft-card memo-row" :disabled="busy" @click="openNote(note)"><b>{{ note.title }}</b><small>{{ new Date(note.updatedAt).toLocaleString('ja-JP') }}</small></button></div></template>
     <button ref="fab" class="memo-fab" type="button" aria-label="フォルダ・メモを新規作成" aria-haspopup="dialog" :disabled="busy" @click="showCreate()"><AppIcon name="plus" /></button>
-    <p class="memo-hint">メモと画像はこの端末のブラウザに保存されます。</p>
+    <p class="memo-hint">メモと写真は端末に保存され、ログイン中のアカウントで同期されます。</p>
    </template>
   </template>
   <Teleport to="body">

@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { setMemoScope } from '../lib/memo-repository'
 import { setImageScope } from '../lib/image-repository'
 import { switchDiaryScope } from './diary'
 export const account = reactive({ user: null as User | null, ready: false, error: '', recovery: false })
@@ -9,6 +10,7 @@ function applyUser(user: User | null) {
  if (account.ready && account.user?.id === user?.id) { account.user = user; return }
  switchDiaryScope(user?.id ?? '')
  setImageScope(user?.id ?? '')
+ setMemoScope(user?.id ?? '')
  account.user = user
  account.ready = true
 }

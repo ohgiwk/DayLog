@@ -3,10 +3,11 @@
   --gradient-sky: #9bd5ed;
   --gradient-mint: #a7dfc1;
   --gradient-hero:
+    linear-gradient(180deg, var(--status-bar) 0, transparent 160px),
     radial-gradient(ellipse at 85% 18%, rgba(255, 255, 247, .85), transparent 48%),
     radial-gradient(ellipse at 100% 65%, rgba(167, 223, 193, .55), transparent 58%),
     linear-gradient(135deg, #c6e3ee 0%, #deeee7 62%, #edf2e9 100%);
-  --status-bar: #527b6b;
+  --status-bar: #deeee7;
   --gradient-card: linear-gradient(135deg, #d4ecf8 0%, #dbf1e4 100%);
   --gradient-action: linear-gradient(120deg, #245e79 0%, #256449 100%);
   --sub: #526e65;

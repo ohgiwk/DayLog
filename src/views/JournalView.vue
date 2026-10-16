@@ -38,6 +38,6 @@ function back(){if(stage.value==='finish'){router.push('/')}else if(step.value>0
  <header class="journal-header"><button class="icon-button" @click="back" aria-label="戻る"><AppIcon name="chevron-left" /></button><div class="progress"><i :style="{width:progress+'%'}"></i></div><button v-if="stage==='questions'" class="text-button" @click="skipAll">スキップ</button></header>
  <Transition name="question" mode="out-in">
   <section v-if="stage==='questions'&&current" :key="current.id" class="question-pane"><div><p class="eyebrow">{{current.eyebrow||'今日を、もう少しだけ'}}</p><h1>{{current.prompt}}</h1><p class="question-help">考えすぎなくても大丈夫。近いものを選んでください。</p></div><div class="answer-grid" :class="{moods:current.id==='mood'}"><button v-for="o in current.options" :key="o.value" @click="answer(o.value)"><span v-if="o.icon"><AppIcon :name="o.icon" /></span>{{o.label}}<b><AppIcon name="chevron-right" /></b></button></div></section>
-  <section v-else-if="initial" key="finish" class="finish-pane"><div><p class="eyebrow">最後に、あなたの言葉で</p><h1>今日を仕上げましょう</h1></div><DiaryEditor :initial="initial" is-new/><RouterLink class="outline-button" to="/">ホームへ戻る</RouterLink></section>
+  <section v-else-if="initial" key="finish" class="finish-pane"><div><p class="eyebrow">最後に、あなたの言葉で</p><h1>今日を仕上げましょう</h1></div><DiaryEditor :initial="initial" is-new/></section>
  </Transition>
 </div></template>

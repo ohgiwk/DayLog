@@ -111,7 +111,7 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
   <label>今日のこと<textarea v-model="draft.body" placeholder="今日のできごとや気持ちを自由に書いてください"></textarea></label>
-  <label>明日やりたいこと <small>任意</small><input v-model="draft.tomorrow" placeholder="例：少し早く休む"></label>
+  <label><span class="field-heading">明日やりたいこと <small>任意</small></span><input v-model="draft.tomorrow" placeholder="例：少し早く休む"></label>
   <div class="photo-heading">今日の写真 <small>{{ draft.imageIds.length }} / 5</small></div>
   <div v-if="photos.length" class="detail-gallery"><div v-for="photo in photos" :key="photo.id" class="gallery-image" :class="{selected:draft.thumbnailImageId===photo.id}"><img :src="photo.url" alt="日記の写真" @click="lightbox=photo.url"><button :disabled="busy" aria-label="写真を削除" title="写真を削除" @click="removePhoto(photo.id)"><TrashIcon /></button><button @click="draft.thumbnailImageId=photo.id"><AppIcon v-if="draft.thumbnailImageId===photo.id" name="check" />{{draft.thumbnailImageId===photo.id?'代表写真':'代表にする'}}</button></div></div>
   <div v-if="draft.imageIds.length<5" class="photo-actions"><label class="outline-button"><AppIcon name="plus" /> 写真を選ぶ<input type="file" accept="image/*" multiple :disabled="busy" @change="addFiles"></label><label class="outline-button"><AppIcon name="camera" /> カメラ<input type="file" accept="image/*" capture="environment" :disabled="busy" @change="addFiles"></label></div>
@@ -135,6 +135,8 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
 </template>
 <style scoped>
 .editor-status{display:flex;align-items:center;justify-content:space-between;gap:12px}.editor-status p{font-size:.75rem;color:var(--sub)}.diary-editor>label{display:flex;flex-direction:column;gap:8px;margin:20px 0;font-size:.8rem;font-weight:700}.diary-editor>label small{font-weight:400;color:var(--sub)}.diary-editor textarea,.diary-editor>label input{width:100%;padding:15px;border:1px solid var(--line);border-radius:18px;background:white;color:var(--text)}.diary-editor textarea:focus-visible,.diary-editor input:focus-visible{outline:2px solid var(--sage)}.photo-heading{font-size:.8rem;margin-bottom:12px}.photo-actions{margin-top:12px}.diary-editor button:disabled{opacity:.5;cursor:wait}
+.diary-editor textarea{min-height:260px;line-height:1.8}
+.field-heading{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
 .diary-answers{margin-top:20px;padding:10px 14px;background:white;border-radius:16px}
 .diary-answers summary{cursor:pointer;font-size:.9rem;font-weight:700;line-height:1.6;padding:10px 0}
 .answer-help{margin:2px 0 8px;font-size:.72rem;color:var(--sub);line-height:1.5}

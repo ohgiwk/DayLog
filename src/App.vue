@@ -4,6 +4,7 @@ import AppIcon from "./components/AppIcon.vue"
 import { computed, watch } from 'vue'
 import { authRedirect, isAuthPath } from './lib/auth-navigation'
 import { account } from './stores/account'
+import { startMemoSync, resetMemoSync, scheduleMemoSync, memoSyncState } from './lib/memo-sync'
 import { scheduleSync, setEditingCheck, startSync, syncState } from './lib/diary-sync'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import DeleteConfirmation from './components/DeleteConfirmation.vue'
@@ -14,8 +15,9 @@ const route=useRoute(), router=useRouter()
 const authScreen = computed(() => isAuthPath(route.path))
 setEditingCheck(() => route.path === '/journal' || route.path.startsWith('/entry/'))
 startSync()
-watch(() => account.user?.id, () => { syncState.error = ''; syncState.lastSynced = ''; scheduleSync() })
-watch(() => route.path, scheduleSync)
+startMemoSync()
+watch(() => account.user?.id, () => { syncState.error = ''; syncState.lastSynced = ''; scheduleSync(); resetMemoSync() })
+watch(() => route.path, () => { scheduleSync(); scheduleMemoSync() })
 watch(() => [account.ready, account.user?.id, account.recovery], () => {
  const target = authRedirect(route, { ready: account.ready, signedIn: !!account.user, recovery: account.recovery })
  if (target) void router.replace(target)
@@ -40,7 +42,7 @@ function animateTab(event: MouseEvent) {
   <UpdateNotice />
   <DeleteConfirmation />
   <main v-if="account.ready" :class="{ 'auth-main': authScreen }">
-   <RouterLink v-if="!authScreen && account.user && (syncState.error || syncState.conflicts.length)" to="/settings" class="sync-notice">{{ syncState.conflicts.length ? '別の端末の変更と重複しています。設定で確認' : '未同期の変更があります。設定で確認' }}</RouterLink>
+   <RouterLink v-if="!authScreen && account.user && (syncState.error || syncState.conflicts.length || memoSyncState.error || memoSyncState.conflict)" to="/settings" class="sync-notice">{{ (syncState.conflicts.length || memoSyncState.conflict) ? '別の端末の変更と重複しています。設定で確認' : '未同期の変更があります。設定で確認' }}</RouterLink>
    <RouterView v-if="account.user || authScreen" v-slot="{ Component, route: currentRoute }">
     <Transition name="page-fade" mode="out-in">
      <component :is="Component" :key="`${account.user?.id ?? 'guest'}:${currentRoute.fullPath}`" />
