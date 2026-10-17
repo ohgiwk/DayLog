@@ -10,7 +10,7 @@ import { compressImage, imageRepository } from '../lib/image-repository'
 import { confirmDelete } from '../lib/delete-confirmation'
 import TrashIcon from './TrashIcon.vue'
 import { baseQuestions, activityQuestions } from '../data/questions'
-import { editAnswer } from '../lib/edit-answer'
+import { editAnswer, editAnswers } from '../lib/edit-answer'
 import { hasDiaryContent } from '../lib/diary-content'
 const props = defineProps<{ initial: DiaryEntry; isNew?: boolean }>()
 const emit = defineEmits<{ deleted: [] }>()
@@ -44,7 +44,7 @@ function save() {
  }
 }
 // Text is persisted synchronously on each input, including the last keystroke before leaving.
-watch(() => [draft.body, draft.tomorrow, draft.thumbnailImageId], () => { if (!changingPhoto) save() }, { flush: 'sync' })
+watch(() => [draft.guess, draft.body, draft.tomorrow, draft.thumbnailImageId], () => { if (!changingPhoto) save() }, { flush: 'sync' })
 onMounted(async () => {
  if (props.isNew) save()
  for (const id of draft.imageIds) {
@@ -103,9 +103,7 @@ async function removeDiary() {
  catch { saveError.value = '削除できませんでした。もう一度お試しください。' }
 }
 function applyAnswers(answers: Record<string, string>) {
- let updated = { ...draft, answers: { ...answers } }
- for (const [id, value] of Object.entries(answers)) updated = editAnswer(updated, id, value)
- Object.assign(draft, updated)
+ Object.assign(draft, editAnswers(draft, answers))
  return save()
 }
 defineExpose({ removeDiary, busy, applyAnswers, getAnswers: () => ({ ...draft.answers }) })
@@ -123,6 +121,8 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
  <div class="diary-editor">
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
+  <label class="title-field">タイトル<input v-model="draft.guess" placeholder="日記のタイトル"></label>
+  <div v-if="draft.tags.length" class="tag-list"><span v-for="tag in draft.tags" :key="tag"># {{tag}}</span></div>
   <section class="diary-photos" aria-label="今日の写真">
   <div class="photo-heading">今日の写真 <small>{{ draft.imageIds.length }} / 5</small></div>
   <div v-if="photos.length" class="detail-gallery"><div v-for="photo in photos" :key="photo.id" class="gallery-image" :class="{selected:draft.thumbnailImageId===photo.id}"><img :src="photo.url" alt="日記の写真" @click="lightbox=photo.url"><button :disabled="busy" aria-label="写真を削除" title="写真を削除" @click="removePhoto(photo.id)"><TrashIcon /></button><button @click="draft.thumbnailImageId=photo.id"><AppIcon v-if="draft.thumbnailImageId===photo.id" name="check" />{{draft.thumbnailImageId===photo.id?'代表写真':'代表にする'}}</button></div></div>
@@ -158,7 +158,11 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
 .diary-photos .gallery-image{flex-basis:100%;border:0;border-radius:12px;scroll-snap-align:center}
 .diary-photos .gallery-image.selected{outline:3px solid var(--sage);outline-offset:-3px}
 .diary-photos .photo-actions{margin-bottom:0;flex-wrap:wrap}
+.diary-editor>.title-field{gap:4px;margin:0 0 24px;font-size:.72rem;line-height:1.5;color:var(--sub)}
+.diary-editor>.title-field input{padding:4px 0 10px;line-height:1.6;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;font-size:1.1rem;font-weight:700}
+.diary-editor>.title-field input:focus-visible{outline:none;border-bottom:2px solid var(--sage);padding-bottom:9px}
 .body-heading{margin-top:20px;font-size:.8rem;font-weight:700}
+.diary-editor>label,.body-heading,.photo-heading,.answer-field>span{color:var(--sub)}
 .field-heading{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
 .diary-answers{margin-top:20px;padding:10px 14px;background:white;border-radius:16px}
 .diary-answers summary{cursor:pointer;font-size:.9rem;font-weight:700;line-height:1.6;padding:10px 0}

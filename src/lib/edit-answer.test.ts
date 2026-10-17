@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { editAnswer } from './edit-answer'
+import { editAnswer, editAnswers } from './edit-answer'
 import type { DiaryEntry } from '../types'
 
 const entry: DiaryEntry = {
@@ -34,4 +34,13 @@ describe('editing diary answers', () => {
   expect(result.answers.meetingType).toBe('friend')
   expect(result.tags).toContain('人と会った')
  })
+})
+
+it('preserves a custom title when answers change', () => {
+ const custom = { ...entry, guess: '秋の散歩と読書' }
+ expect(editAnswer(custom, 'exercise', 'no').guess).toBe(custom.guess)
+ expect(editAnswers(custom, { work: 'yes' }).guess).toBe(custom.guess)
+})
+it('updates an automatic title when answering a full question session', () => {
+ expect(editAnswers(entry, { work: 'yes' }).guess).toBe('今日は仕事や勉強に取り組んだ')
 })

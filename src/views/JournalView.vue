@@ -63,7 +63,7 @@ function back(){if(stage.value==='finish'){router.push(isToday?'/':'/records')}e
 </div></template>
 
 <style scoped>
-.journal-date{margin:0 0 20px;font-size:.85rem;color:var(--sub)}
+.journal-date{margin:0 0 16px;font-size:.8rem;line-height:1.6;color:var(--sub)}
 .finish-pane{padding-bottom:88px}
 .question-fab{position:fixed;z-index:25;right:max(20px,calc((100vw - 620px)/2 + 20px));bottom:calc(20px + env(safe-area-inset-bottom));display:grid;place-items:center;width:56px;height:56px;padding:0;border:0;border-radius:50%;background:var(--forest);color:white;box-shadow:0 6px 20px rgba(36,74,61,.25);cursor:pointer}
 .question-fab :deep(.app-icon){width:26px;height:26px}
