@@ -1,10 +1,46 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { coverOpacity, coverOffset } from '../lib/cover-pull'
 defineProps<{ src: string; stretch?: number; pulling?: boolean }>()
+const space = ref<HTMLElement>()
+const left = ref(0), width = ref(0), opacity = ref(coverOpacity(window.scrollY)), offset = ref(coverOffset(window.scrollY))
+let observer: ResizeObserver | undefined, frame = 0
+function measure() {
+ const bounds = space.value?.getBoundingClientRect()
+ if (bounds && bounds.width > 0) { left.value = bounds.left; width.value = bounds.width }
+}
+function scroll() {
+ if (frame) return
+ frame = requestAnimationFrame(() => { opacity.value = coverOpacity(window.scrollY); offset.value = coverOffset(window.scrollY); frame = 0 })
+}
+onMounted(() => {
+ measure()
+ observer = new ResizeObserver(measure)
+ if (space.value) observer.observe(space.value)
+ window.addEventListener('resize',measure)
+ window.addEventListener('scroll',scroll,{passive:true})
+ scroll()
+})
+watch(space, node => {
+ observer?.disconnect()
+ if (node) { measure(); observer?.observe(node) }
+}, {flush:'post'})
+onBeforeUnmount(() => {
+ observer?.disconnect()
+ cancelAnimationFrame(frame)
+ window.removeEventListener('resize',measure)
+ window.removeEventListener('scroll',scroll)
+})
 </script>
-<template><div v-if="src" class="diary-cover" :class="{pulling}" :style="{height:(360+(stretch||0))+'px','--cover-scale':1+(stretch||0)/360}" aria-hidden="true"><img :src="src" alt="" /></div></template>
+<template>
+ <div v-if="src" ref="space" class="diary-cover-space" :class="{pulling}" :style="{height:(360+(stretch||0))+'px'}" aria-hidden="true">
+  <div class="diary-cover" :class="{pulling}" :style="{left:left+'px',width:width?width+'px':'100%',height:(360+(stretch||0))+'px',opacity,transform:`translate3d(0,${offset}px,0)`,'--cover-scale':1+(stretch||0)/360}"><img :src="src" alt="" /></div>
+ </div>
+</template>
 <style scoped>
-.diary-cover{width:100%;height:360px;overflow:hidden;pointer-events:none;transition:height 240ms cubic-bezier(.2,.7,.3,1);mask-image:linear-gradient(to bottom,#000 0%,#000 55%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 55%,transparent 100%)}
+.diary-cover-space{width:100%;height:360px;pointer-events:none;transition:height 240ms cubic-bezier(.2,.7,.3,1)}
+.diary-cover{position:fixed;top:env(safe-area-inset-top,0px);z-index:-1;height:360px;overflow:hidden;pointer-events:none;transition:height 240ms cubic-bezier(.2,.7,.3,1);mask-image:linear-gradient(to bottom,#000 0%,#000 55%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 55%,transparent 100%);will-change:opacity,transform}
 .diary-cover img{display:block;width:100%;height:360px;transform:scale(var(--cover-scale,1));transform-origin:center top;transition:transform 240ms cubic-bezier(.2,.7,.3,1);object-fit:cover;object-position:center center}
-.diary-cover.pulling,.diary-cover.pulling img{transition:none}
-@media(prefers-reduced-motion:reduce){.diary-cover,.diary-cover img{transition:none}}
+.pulling,.diary-cover.pulling img{transition:none}
+@media(prefers-reduced-motion:reduce){.diary-cover-space,.diary-cover,.diary-cover img{transition:none}}
 </style>
