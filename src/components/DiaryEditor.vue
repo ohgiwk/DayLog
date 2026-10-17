@@ -14,6 +14,7 @@ import TrashIcon from './TrashIcon.vue'
 import { baseQuestions, activityQuestions } from '../data/questions'
 import { editAnswer, editAnswers } from '../lib/edit-answer'
 import { registerUpdatePreparation } from '../lib/update-preparation'
+import { coverStretch, shouldExpandCover } from '../lib/cover-pull'
 import { hasDiaryContent } from '../lib/diary-content'
 const props = defineProps<{ initial: DiaryEntry; isNew?: boolean }>()
 const emit = defineEmits<{ deleted: [] }>()
@@ -31,6 +32,71 @@ const photos = ref<{id: string; url: string}[]>([])
 const coverUrl = computed(() => photos.value.find(photo => photo.id === draft.thumbnailImageId)?.url || '')
 const dateLabel = computed(() => new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date(draft.date + 'T12:00:00')))
 const saveError = ref(''), photoError = ref(''), busy = ref(false), lightbox = ref('')
+const editorRoot = ref<HTMLElement>()
+const pullDistance = ref(0), pullingCover = ref(false), pullReady = ref(false)
+let touchStart: { x: number; y: number } | undefined
+let rawPull = 0
+let wheelTimer: ReturnType<typeof setTimeout> | undefined
+function resetPull() {
+ clearTimeout(wheelTimer)
+ touchStart = undefined; rawPull = 0
+ pullingCover.value = false; pullReady.value = false; pullDistance.value = 0
+}
+function ignorePull(target: EventTarget | null) {
+ return !coverUrl.value || !!lightbox.value || !(target instanceof Element) || !!target.closest('input,textarea,button,label,a,summary,[contenteditable="true"],.detail-gallery,.environment-area')
+}
+function stretchCover(distance: number) {
+ rawPull = Math.max(0,distance)
+ pullingCover.value = rawPull > 0
+ pullDistance.value = coverStretch(rawPull)
+ pullReady.value = shouldExpandCover(rawPull)
+}
+function releaseCover() {
+ const expand = pullReady.value
+ resetPull()
+ if (expand && coverUrl.value) lightbox.value = coverUrl.value
+}
+function beginCoverPull(event: TouchEvent) {
+ resetPull()
+ if (window.scrollY > 1 || event.touches.length !== 1 || ignorePull(event.target)) return
+ const touch = event.touches[0]!
+ touchStart = {x:touch.clientX,y:touch.clientY}
+}
+function moveCoverPull(event: TouchEvent) {
+ if (!touchStart) return
+ if (event.touches.length !== 1) { resetPull(); return }
+ const touch = event.touches[0]!, dy = touch.clientY-touchStart.y, dx = touch.clientX-touchStart.x
+ if (dy <= 0 || Math.abs(dx) > Math.abs(dy)) { resetPull(); return }
+ if (!event.cancelable) { resetPull(); return }
+ event.preventDefault()
+ stretchCover(dy)
+}
+function wheelCoverPull(event: WheelEvent) {
+ if (window.scrollY > 1 || event.ctrlKey || ignorePull(event.target) || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
+ if (event.deltaY >= 0) { resetPull(); return }
+ if (!event.cancelable) return
+ event.preventDefault()
+ const delta = -event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1)
+ stretchCover(rawPull + delta)
+ clearTimeout(wheelTimer)
+ wheelTimer = setTimeout(releaseCover,180)
+}
+onMounted(() => {
+ editorRoot.value?.addEventListener('touchstart',beginCoverPull,{passive:true})
+ editorRoot.value?.addEventListener('touchmove',moveCoverPull,{passive:false})
+ editorRoot.value?.addEventListener('touchend',releaseCover)
+ editorRoot.value?.addEventListener('touchcancel',resetPull)
+ editorRoot.value?.addEventListener('wheel',wheelCoverPull,{passive:false})
+})
+onBeforeUnmount(() => {
+ resetPull()
+ editorRoot.value?.removeEventListener('touchstart',beginCoverPull)
+ editorRoot.value?.removeEventListener('touchmove',moveCoverPull)
+ editorRoot.value?.removeEventListener('touchend',releaseCover)
+ editorRoot.value?.removeEventListener('touchcancel',resetPull)
+ editorRoot.value?.removeEventListener('wheel',wheelCoverPull)
+})
+watch(coverUrl,resetPull)
 let unsaved = false, disposed = false, deleted = false, changingPhoto = false
 let persisted = !props.isNew
 let pending: Promise<void> | undefined
@@ -131,11 +197,12 @@ window.addEventListener('beforeunload', beforeUnload)
 onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeEventListener('beforeunload', beforeUnload); photos.value.forEach(p => URL.revokeObjectURL(p.url)) })
 </script>
 <template>
- <div class="diary-editor">
+ <div ref="editorRoot" class="diary-editor">
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
   <section class="diary-photos" aria-label="今日の写真">
-  <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" />
+  <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" :stretch="pullDistance" :pulling="pullingCover" />
+  <span v-if="pullReady" class="cover-pull-hint" role="status">離すと写真を拡大</span>
   <div class="photo-caption">
   <p class="diary-date">{{dateLabel}}</p>
   <div class="title-field"><input v-model="draft.guess" aria-label="タイトル" placeholder="日記のタイトル"></div>
@@ -183,6 +250,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .lightbox>button{top:calc(env(safe-area-inset-top,0px) + 16px);right:calc(env(safe-area-inset-right,0px) + 16px);display:grid;place-items:center;padding:0;line-height:1}
 .diary-editor textarea{min-height:260px;line-height:1.8}
 .diary-photos{margin:0 0 20px;padding:0;border:0;background:transparent}
+.cover-pull-hint{position:absolute;top:84px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);color:var(--forest);font-size:.7rem;white-space:nowrap;pointer-events:none}
 .photo-stage{position:relative;margin:0 calc(-1 * var(--page-right,22px)) 12px calc(-1 * var(--page-left,22px));min-height:300px}
 .photo-stage.empty{min-height:0;padding:88px var(--page-right,22px) 24px var(--page-left,22px);margin-bottom:20px;background:linear-gradient(150deg,#e4efea 0%,#f0f4ed 48%,var(--paper) 100%)}
 .photo-stage.empty .photo-caption{position:static;padding:0;border:0;border-radius:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
