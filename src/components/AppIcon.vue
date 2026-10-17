@@ -3,6 +3,8 @@ import { computed } from 'vue'
 const props = defineProps<{ name: string }>()
 const aliases: Record<string, string> = { '😌':'smile', '🙂':'smile', '🌿':'leaf', '🌧️':'cloud', '🌙':'moon', '☀️':'sun', '☁️':'cloud', '🍃':'leaf', '○':'circle', '◌':'circle-dashed', '—':'minus', '…':'more', '🚶':'walk', '🏃':'walk', '🧘':'person', '🏸':'activity' }
 const paths: Record<string, string> = {
+ 'message-question':'M5 3h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8l-5 3V5a2 2 0 0 1 2-2ZM9.8 8a2.2 2.2 0 0 1 4.4 0c0 1.5-2.2 1.8-2.2 3.5M12 15h.01',
+ 'clear-format':'M4 4h13M10 4v10m-4 4h5m3-4 6 6m0-6-6 6',
  bold:'M6 4h7a4 4 0 0 1 0 8H6m0-8v16h8a4 4 0 0 0 0-8H6',
  italic:'M10 4h10M4 20h10M15 4 9 20',
  underline:'M6 3v8a6 6 0 0 0 12 0V3M4 21h16',

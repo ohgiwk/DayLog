@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readRichText } from '../lib/rich-text'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import EntryThumbnail from '../components/EntryThumbnail.vue'
@@ -126,7 +127,7 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
   <section class="recent-list" aria-label="日記の一覧">
    <h2 class="records-list-title">これまでの記録</h2>
    <p v-if="!entries.length" class="soft-card">まだ日記がありません。日記を書くと、ここに表示されます。</p>
-   <RouterLink v-for="e in entries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': e.thumbnailImageId }"><EntryThumbnail :id="e.thumbnailImageId"/><div class="entry-icon" v-if="!e.thumbnailImageId"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div><small>{{new Intl.DateTimeFormat('ja-JP',{dateStyle:'medium'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{e.body}}</h3><p><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b></RouterLink>
+   <RouterLink v-for="e in entries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': e.thumbnailImageId }"><EntryThumbnail :id="e.thumbnailImageId"/><div class="entry-icon" v-if="!e.thumbnailImageId"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div><small>{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{readRichText(e.body).text}}</h3><p><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b></RouterLink>
   </section>
  </div>
 </template>
@@ -156,10 +157,10 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 .entry-row { grid-template-columns: 64px minmax(0, 1fr) 12px; }
 .entry-row > div { min-width: 0; }
 .entry-row p { overflow-wrap: anywhere; }
-.entry-row.has-photo { grid-template-columns: 104px minmax(0, 1fr) 12px; }
-.entry-row.has-photo :deep(.entry-thumb) { width: 104px; height: 104px; }
+.entry-row.has-photo { grid-template-columns: 124px minmax(0, 1fr) 12px; padding: 0 10px 0 0; overflow: hidden; }
+.entry-row.has-photo :deep(.entry-thumb) { width: 124px; height: 100%; min-height: 124px; align-self: stretch; border-radius: 17px; }
 @media (max-width: 374px) {
-  .entry-row.has-photo { grid-template-columns: 88px minmax(0, 1fr) 12px; gap: 10px; }
-  .entry-row.has-photo :deep(.entry-thumb) { width: 88px; height: 88px; }
+  .entry-row.has-photo { grid-template-columns: 108px minmax(0, 1fr) 12px; gap: 10px; }
+  .entry-row.has-photo :deep(.entry-thumb) { width: 108px; min-height: 108px; }
 }
 </style>

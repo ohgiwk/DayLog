@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppIcon from "./AppIcon.vue"
+import RichTextEditor from "./RichTextEditor.vue"
 
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
@@ -10,6 +11,7 @@ import { confirmDelete } from '../lib/delete-confirmation'
 import TrashIcon from './TrashIcon.vue'
 import { baseQuestions, activityQuestions } from '../data/questions'
 import { editAnswer } from '../lib/edit-answer'
+import { hasDiaryContent } from '../lib/diary-content'
 const props = defineProps<{ initial: DiaryEntry; isNew?: boolean }>()
 const emit = defineEmits<{ deleted: [] }>()
 const owner = diaryScope.userId, ownerGeneration = diaryScope.generation
@@ -25,12 +27,17 @@ function changeAnswer(id: string, event: Event) {
 const photos = ref<{id: string; url: string}[]>([])
 const saveError = ref(''), photoError = ref(''), busy = ref(false), lightbox = ref('')
 let unsaved = false, disposed = false, deleted = false, changingPhoto = false
+let persisted = !props.isNew
 let pending: Promise<void> | undefined
 function save() {
  if (!sameOwner()) return false
  if (deleted) return true
+ if (!persisted && !hasDiaryContent(draft)) {
+  unsaved = false; saveError.value = ''; return true
+ }
  try {
   saveEntry({ ...draft, answers: { ...draft.answers }, tags: [...draft.tags], imageIds: [...draft.imageIds], updatedAt: new Date().toISOString() })
+  persisted = true
   unsaved = false; saveError.value = ''; return true
  } catch {
   unsaved = true; saveError.value = '自動保存できませんでした。端末の空き容量やブラウザの保存設定を確認してください。'; return false
@@ -95,7 +102,13 @@ async function removeDiary() {
  try { await deleteEntry(draft.id); deleted = true; unsaved = false; emit('deleted') }
  catch { saveError.value = '削除できませんでした。もう一度お試しください。' }
 }
-defineExpose({ removeDiary, busy })
+function applyAnswers(answers: Record<string, string>) {
+ let updated = { ...draft, answers: { ...answers } }
+ for (const [id, value] of Object.entries(answers)) updated = editAnswer(updated, id, value)
+ Object.assign(draft, updated)
+ return save()
+}
+defineExpose({ removeDiary, busy, applyAnswers, getAnswers: () => ({ ...draft.answers }) })
 onBeforeRouteLeave(async () => {
  if (pending) await pending
  return deleted || !unsaved || save()
@@ -110,7 +123,7 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
  <div class="diary-editor">
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
-  <label>今日のこと<textarea v-model="draft.body" placeholder="今日のできごとや気持ちを自由に書いてください"></textarea></label>
+  <div class="body-heading">今日のこと</div><RichTextEditor v-model="draft.body"/>
   <label><span class="field-heading">明日やりたいこと <small>任意</small></span><input v-model="draft.tomorrow" placeholder="例：少し早く休む"></label>
   <div class="photo-heading">今日の写真 <small>{{ draft.imageIds.length }} / 5</small></div>
   <div v-if="photos.length" class="detail-gallery"><div v-for="photo in photos" :key="photo.id" class="gallery-image" :class="{selected:draft.thumbnailImageId===photo.id}"><img :src="photo.url" alt="日記の写真" @click="lightbox=photo.url"><button :disabled="busy" aria-label="写真を削除" title="写真を削除" @click="removePhoto(photo.id)"><TrashIcon /></button><button @click="draft.thumbnailImageId=photo.id"><AppIcon v-if="draft.thumbnailImageId===photo.id" name="check" />{{draft.thumbnailImageId===photo.id?'代表写真':'代表にする'}}</button></div></div>
@@ -136,6 +149,7 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
 <style scoped>
 .editor-status{display:flex;align-items:center;justify-content:space-between;gap:12px}.editor-status p{font-size:.75rem;color:var(--sub)}.diary-editor>label{display:flex;flex-direction:column;gap:8px;margin:20px 0;font-size:.8rem;font-weight:700}.diary-editor>label small{font-weight:400;color:var(--sub)}.diary-editor textarea,.diary-editor>label input{width:100%;padding:15px;border:1px solid var(--line);border-radius:18px;background:white;color:var(--text)}.diary-editor textarea:focus-visible,.diary-editor input:focus-visible{outline:2px solid var(--sage)}.photo-heading{font-size:.8rem;margin-bottom:12px}.photo-actions{margin-top:12px}.diary-editor button:disabled{opacity:.5;cursor:wait}
 .diary-editor textarea{min-height:260px;line-height:1.8}
+.body-heading{margin-top:20px;font-size:.8rem;font-weight:700}
 .field-heading{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
 .diary-answers{margin-top:20px;padding:10px 14px;background:white;border-radius:16px}
 .diary-answers summary{cursor:pointer;font-size:.9rem;font-weight:700;line-height:1.6;padding:10px 0}
