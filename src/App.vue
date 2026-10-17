@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import AppIcon from "./components/AppIcon.vue"
 
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { trackViewportBottom } from './lib/viewport-bottom'
+import { computed, watch } from 'vue'
 import { authRedirect, isAuthPath } from './lib/auth-navigation'
 import { account } from './stores/account'
 import { startMemoSync, resetMemoSync, scheduleMemoSync, memoSyncState } from './lib/memo-sync'
@@ -14,10 +13,6 @@ import { existingJournalPath } from './lib/journal-navigation'
 import { entries, saveSettings, settings } from './stores/diary'
 saveSettings()
 const route=useRoute(), router=useRouter()
-const tabbarBottom = ref(0)
-let stopViewportTracking: (() => void) | undefined
-onMounted(() => { stopViewportTracking = trackViewportBottom(inset => { tabbarBottom.value = inset }) })
-onBeforeUnmount(() => stopViewportTracking?.())
 const writeTarget = computed(() => existingJournalPath(entries.value) || '/journal')
 const authScreen = computed(() => isAuthPath(route.path))
 setEditingCheck(() => route.path === '/journal' || route.path.startsWith('/entry/'))
@@ -57,7 +52,7 @@ function animateTab(event: MouseEvent) {
    </RouterView>
   </main>
   <p v-else class="page" role="alert">{{ account.error || 'ログイン状態を確認しています…' }}</p>
-  <nav v-if="account.ready && account.user && !authScreen && route.path!='/journal'" class="tabbar" :style="{ bottom: tabbarBottom > 0 ? `${tabbarBottom}px` : undefined }" aria-label="メインメニュー" @click="animateTab">
+  <nav v-if="account.ready && account.user && !authScreen && route.path!='/journal'" class="tabbar" aria-label="メインメニュー" @click="animateTab">
    <RouterLink to="/" aria-label="ホーム"><span><AppIcon name="home" /></span><small>ホーム</small></RouterLink>
    <RouterLink to="/records" aria-label="記録"><span><AppIcon name="records" /></span><small>記録</small></RouterLink>
    <RouterLink :to="writeTarget" class="write-tab" aria-label="日記を書く"><span><AppIcon name="notebook-pen" /></span><small>日記を書く</small></RouterLink>
