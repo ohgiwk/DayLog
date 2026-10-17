@@ -49,5 +49,7 @@ describe('account route access', () => {
  it('rejects external URLs and authentication routes as return destinations', () => {
   for (const value of ['https://example.com', '//example.com', '/login', '/signup', '/reset-password', ['/settings']]) expect(loginDestination(value)).toBe('/')
   expect(loginDestination('/settings')).toBe('/settings')
+  expect(loginDestination('/journal?date=2026-10-16')).toBe('/journal?date=2026-10-16')
+  expect(loginDestination('/journal?date=2026-10-16&next=https://example.com')).toBe('/')
  })
 })

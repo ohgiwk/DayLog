@@ -4,6 +4,7 @@ const authPaths = ['/login', '/signup', '/reset-password']
 export function isAuthPath(path: string) { return authPaths.includes(path) }
 export function loginDestination(value: unknown): string {
  // Only known, internal app routes can be used as a post-login destination.
+ if (typeof value === 'string' && /^\/journal\?date=\d{4}-\d{2}-\d{2}$/.test(value)) return value
  return typeof value === 'string' && /^\/(?:records|memos|insights|settings|journal|entry\/[\w-]+)?$/.test(value) ? value : '/'
 }
 export function authRedirect(to: AuthLocation, state: AuthState) {

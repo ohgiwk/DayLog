@@ -7,6 +7,9 @@ import { entries, settings } from '../stores/diary'
 import { calendarDays, dateKey, moveCalendar, type CalendarMode } from '../lib/records-calendar'
 
 const mode = ref<CalendarMode>('week')
+function toggleCalendar() {
+ mode.value = mode.value === 'week' ? 'month' : 'week'
+}
 const anchor = ref(new Date())
 const cells = computed(() => calendarDays(anchor.value, mode.value))
 const entriesByDate = computed(() => new Map(entries.value.map(entry => [entry.date, entry])))
@@ -97,12 +100,9 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
    <p class="eyebrow">YOUR MOMENTS</p>
    <div class="records-heading">
     <h1>記録</h1>
-    <div class="view-toggle" role="group" aria-label="カレンダーの表示範囲">
-     <button type="button" :aria-pressed="mode === 'month'" @click="mode = 'month'">月全体</button>
-     <button type="button" :aria-pressed="mode === 'week'" @click="mode = 'week'">1週間</button>
-    </div>
    </div>
    <section class="records-calendar" aria-label="記録カレンダー">
+    <div id="records-calendar-content">
     <div class="month-nav">
      <button type="button" :aria-label="mode === 'month' ? '前の月' : '前の週'" @click="move(-1)"><AppIcon name="chevron-left" /></button>
      <h2 aria-live="polite">{{ title }}</h2>
@@ -116,12 +116,15 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
      <span v-for="(day, index) in panel.days" :key="day ? dateKey(day) : `blank-${index}`" :class="{ written: day && entryOn(day) }">
       <template v-if="day">
        <RouterLink v-if="entryOn(day)" :to="`/entry/${entryOn(day)!.id}`" :aria-label="`${dateKey(day)}の日記`" :aria-current="dateKey(day) === dateKey(new Date()) ? 'date' : undefined">{{ day.getDate() }}<i></i></RouterLink>
+       <RouterLink v-else-if="dateKey(day) <= dateKey(new Date())" :to="{path:'/journal',query:{date:dateKey(day)}}" :aria-label="`${dateKey(day)}の日記を書く`" :aria-current="dateKey(day) === dateKey(new Date()) ? 'date' : undefined">{{day.getDate()}}</RouterLink>
        <b v-else :aria-label="dateKey(day)" :aria-current="dateKey(day) === dateKey(new Date()) ? 'date' : undefined">{{ day.getDate() }}</b>
       </template>
      </span>
     </div>
     </div>
     </div>
+    </div>
+    <button type="button" class="calendar-handle" :aria-label="mode === 'week' ? '月全体を表示' : '1週間を表示'" :title="mode === 'week' ? '月全体を表示' : '1週間を表示'" :aria-expanded="mode === 'month'" aria-controls="records-calendar-content" @click="toggleCalendar"><span aria-hidden="true"></span></button>
    </section>
   </header>
   <section class="recent-list" aria-label="日記の一覧">
@@ -133,12 +136,13 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 </template>
 
 <style scoped>
-.records-header { padding-bottom: 20px; }
+.calendar-handle{display:flex;align-items:center;justify-content:center;width:100%;height:20px;margin:4px auto 0;padding:8px 12px;border:0;border-radius:12px;background:transparent;cursor:pointer}
+.calendar-handle span{width:32px;height:4px;flex-shrink:0;border-radius:999px;background:var(--sage)}
+.calendar-handle:hover{background:rgba(255,255,255,.3)}
+.calendar-handle:focus-visible{outline:2px solid var(--forest);outline-offset:2px}
+.records-header { padding-bottom: 4px; }
 .records-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.view-toggle { display: inline-flex; flex-shrink: 0; padding: 3px; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,255,255,.45); }
-.view-toggle button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 11px; background: transparent; color: var(--sub); font: inherit; font-size: .75rem; cursor: pointer; }
-.view-toggle button[aria-pressed="true"] { background: white; color: var(--forest); box-shadow: 0 2px 6px rgba(30,50,40,.1); }
-.view-toggle button:focus-visible, .days a:focus-visible, .month-nav button:focus-visible { outline: 2px solid var(--forest); outline-offset: 2px; }
+.days a:focus-visible, .month-nav button:focus-visible { outline: 2px solid var(--forest); outline-offset: 2px; }
 .records-calendar { border-top: 1px solid rgba(82,110,101,.16); padding-top: 8px; }
 .month-nav h2 { font-size: .95rem; text-align: center; }
 .month-nav button { flex-shrink: 0; }
