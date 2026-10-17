@@ -154,7 +154,9 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 @media (prefers-reduced-motion: reduce) {
   .calendar-days { transition: none; }
 }
-.days a, .days b { width: 42px; height: 44px; }
+.days a, .days b { width: 42px; height: 42px; }
+.days .written a{background:var(--forest);color:white;border-radius:50%}
+.days .written i{background:rgba(255,255,255,.8)}
 .days [aria-current="date"] { outline: 1px solid var(--sage); outline-offset: -2px; }
 .records-list-title { margin: 0 0 4px; font-size: 1rem; }
 .entry-row { grid-template-columns: 64px minmax(0, 1fr) 12px; }
