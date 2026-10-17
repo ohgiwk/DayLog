@@ -164,11 +164,18 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
    </label>
    <p v-if="answerSaved && !saveError" class="answer-help" role="status">回答を保存しました。</p>
   </details>
-  <div v-if="lightbox" class="lightbox" @click="lightbox=''"><img :src="lightbox" alt="拡大した日記の写真"><button aria-label="画像を閉じる"><AppIcon name="close" /></button></div>
+  <Transition name="photo-lightbox"><div v-if="lightbox" class="lightbox" @click="lightbox=''"><img :src="lightbox" alt="拡大した日記の写真"><button aria-label="画像を閉じる"><AppIcon name="close" /></button></div></Transition>
  </div>
 </template>
 <style scoped>
 .editor-status{display:flex;align-items:center;justify-content:space-between;gap:12px}.editor-status p{font-size:.75rem;color:var(--sub)}.diary-editor>label{display:flex;flex-direction:column;gap:8px;margin:20px 0;font-size:.8rem;font-weight:700}.diary-editor>label small{font-weight:400;color:var(--sub)}.diary-editor textarea,.diary-editor>label input{width:100%;padding:15px;border:1px solid var(--line);border-radius:18px;background:white;color:var(--text)}.diary-editor textarea:focus-visible,.diary-editor input:focus-visible{outline:2px solid var(--sage)}.photo-heading{font-size:.8rem;margin-bottom:12px}.photo-actions{margin-top:12px}.diary-editor button:disabled{opacity:.5;cursor:wait}
+.photo-lightbox-enter-active,.photo-lightbox-leave-active{transition:opacity 220ms ease}
+.photo-lightbox-enter-active img,.photo-lightbox-leave-active img{transition:transform 220ms cubic-bezier(.2,.7,.3,1)}
+.photo-lightbox-enter-from,.photo-lightbox-leave-to{opacity:0}
+.photo-lightbox-enter-from img,.photo-lightbox-leave-to img{transform:scale(.94)}
+@media(prefers-reduced-motion:reduce){.photo-lightbox-enter-active,.photo-lightbox-leave-active,.photo-lightbox-enter-active img,.photo-lightbox-leave-active img{transition:none}.photo-lightbox-enter-from img,.photo-lightbox-leave-to img{transform:none}}
+:global(.reduce-motion) .photo-lightbox-enter-from img,:global(.reduce-motion) .photo-lightbox-leave-to img{transform:none}
+.lightbox>button{top:calc(env(safe-area-inset-top,0px) + 16px);right:calc(env(safe-area-inset-right,0px) + 16px);display:grid;place-items:center;padding:0;line-height:1}
 .diary-editor textarea{min-height:260px;line-height:1.8}
 .diary-photos{margin:0 0 20px;padding:0;border:0;background:transparent}
 .photo-stage{position:relative;margin:0 calc(-1 * var(--page-right,22px)) 12px calc(-1 * var(--page-left,22px));min-height:300px}
