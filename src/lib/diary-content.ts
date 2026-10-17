@@ -7,6 +7,7 @@ export function hasDiaryContent(entry: DiaryEntry): boolean {
   readRichText(entry.body).text.trim()
   || entry.tomorrow.trim()
   || (entry.guess.trim() && entry.guess !== buildGuess(entry.answers).text)
+  || entry.environment?.place || entry.environment?.weather
   || entry.imageIds.length
   || Object.values(entry.answers).some(value => value.trim() && value !== 'skip')
  )

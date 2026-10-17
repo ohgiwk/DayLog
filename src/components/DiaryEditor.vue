@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import AppIcon from "./AppIcon.vue"
+import DiaryEnvironmentPanel from './DiaryEnvironmentPanel.vue'
 import DiaryCover from './DiaryCover.vue'
 import RichTextEditor from "./RichTextEditor.vue"
 
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
-import type { DiaryEntry } from '../types'
+import type { DiaryEntry, DiaryEnvironment } from '../types'
 import { diaryScope, saveEntry, deleteEntry } from '../stores/diary'
 import { compressImage, imageRepository } from '../lib/image-repository'
 import { confirmDelete } from '../lib/delete-confirmation'
@@ -105,6 +106,10 @@ async function removeDiary() {
  try { await deleteEntry(draft.id); deleted = true; unsaved = false; emit('deleted') }
  catch { saveError.value = '削除できませんでした。もう一度お試しください。' }
 }
+function setEnvironment(value: DiaryEnvironment | undefined) {
+ draft.environment = value
+ save()
+}
 function applyAnswers(answers: Record<string, string>) {
  Object.assign(draft, editAnswers(draft, answers))
  return save()
@@ -142,6 +147,7 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
   <p v-if="photoError" class="error" role="alert">{{photoError}}</p>
   </section>
   <div v-if="draft.tags.length" class="tag-list"><span v-for="tag in draft.tags" :key="tag"># {{tag}}</span></div>
+  <DiaryEnvironmentPanel :model-value="draft.environment" :date="draft.date" @update:model-value="setEnvironment" />
   <div class="body-heading">今日のこと</div><RichTextEditor v-model="draft.body"/>
   <label><span class="field-heading">明日やりたいこと <small>任意</small></span><input v-model="draft.tomorrow" placeholder="例：少し早く休む"></label>
   <details v-if="!isNew" class="soft-card diary-answers">
