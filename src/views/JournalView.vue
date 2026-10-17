@@ -58,7 +58,7 @@ function back(){if(stage.value==='finish'){router.push(isToday?'/':'/records')}e
   <section v-if="stage==='questions'&&current" :key="current.id" class="question-pane"><div><p class="eyebrow">{{current.eyebrow||'今日を、もう少しだけ'}}</p><h1>{{current.prompt}}</h1><p class="question-help">考えすぎなくても大丈夫。近いものを選んでください。</p></div><div class="answer-grid" :class="{moods:current.id==='mood'}"><button v-for="o in current.options" :key="o.value" @click="answer(o.value)"><span v-if="o.icon"><AppIcon :name="o.icon" /></span>{{o.label}}<b><AppIcon name="chevron-right" /></b></button></div></section>
 
  </Transition>
- <section v-if="initial" v-show="stage==='finish'" class="finish-pane"><div><p class="eyebrow">あなたの言葉で</p><h1>{{isToday?'今日を仕上げましょう':'この日を仕上げましょう'}}</h1></div><DiaryEditor ref="editor" :initial="initial" is-new/></section>
+ <section v-if="initial" v-show="stage==='finish'" class="finish-pane"><DiaryEditor ref="editor" :initial="initial" is-new/></section>
  <button v-if="initial && stage==='finish'" type="button" class="question-fab" aria-label="質問モードを始める" title="質問モードを始める" :disabled="editor?.busy" @click="startQuestions"><AppIcon name="message-question" /></button>
 </div></template>
 
