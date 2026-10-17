@@ -63,7 +63,7 @@ function addFiles(event: Event) {
  const input = event.target as HTMLInputElement
  const files = Array.from(input.files || []); input.value = ''
  if (busy.value || !files.length) return
- if (draft.imageIds.length + files.length > 5) { photoError.value = '写真は5枚まで追加できます。'; return }
+ if (draft.imageIds.length + files.length > 10) { photoError.value = '写真は10枚まで追加できます。'; return }
  busy.value = true; photoError.value = ''
  pending = (async () => {
   for (const file of files) {
@@ -132,10 +132,11 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
 
   </div>
   </div>
-  <div class="photo-heading">今日の写真 <small>{{ draft.imageIds.length }} / 5</small></div>
+  <div class="photo-heading">今日の写真 <small>{{ draft.imageIds.length }} / 10</small></div>
   <div class="photo-row">
   <div v-if="photos.length" class="detail-gallery"><div v-for="photo in photos" :key="photo.id" class="gallery-image" :class="{selected:draft.thumbnailImageId===photo.id}"><img :src="photo.url" alt="日記の写真" @click="lightbox=photo.url"><button :disabled="busy" aria-label="写真を削除" title="写真を削除" @click="removePhoto(photo.id)"><TrashIcon /></button><button @click="draft.thumbnailImageId=photo.id"><AppIcon v-if="draft.thumbnailImageId===photo.id" name="check" />{{draft.thumbnailImageId===photo.id?'代表写真':'代表にする'}}</button></div></div>
-  <div v-if="draft.imageIds.length<5" class="photo-actions"><label class="outline-button"><AppIcon name="plus" /> 写真を選ぶ<input type="file" accept="image/*" multiple :disabled="busy" @change="addFiles"></label><label class="outline-button"><AppIcon name="camera" /> カメラ<input type="file" accept="image/*" capture="environment" :disabled="busy" @change="addFiles"></label></div>
+  <div v-if="!draft.imageIds.length" class="photo-placeholder" aria-hidden="true"><AppIcon name="camera" /><span>写真はあとからでも</span></div>
+  <div v-if="draft.imageIds.length<10" class="photo-actions"><label class="outline-button" aria-label="写真を選ぶ" title="写真を選ぶ"><AppIcon name="image" /><input aria-label="写真を選ぶ" type="file" accept="image/*" multiple :disabled="busy" @change="addFiles"></label><label class="outline-button" aria-label="カメラ" title="カメラ"><AppIcon name="camera" /><input aria-label="カメラ" type="file" accept="image/*" capture="environment" :disabled="busy" @change="addFiles"></label></div>
   </div>
 
   <p v-if="photoError" class="error" role="alert">{{photoError}}</p>
@@ -165,13 +166,17 @@ onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunloa
 .diary-editor textarea{min-height:260px;line-height:1.8}
 .diary-photos{margin:0 0 20px;padding:0;border:0;background:transparent}
 .photo-stage{position:relative;margin:0 calc(-1 * var(--page-right,22px)) 12px calc(-1 * var(--page-left,22px));min-height:300px}
-.photo-stage.empty{height:300px;background:linear-gradient(145deg,var(--mist),transparent)}
+.photo-stage.empty{min-height:0;padding:88px var(--page-right,22px) 24px var(--page-left,22px);margin-bottom:20px;background:linear-gradient(150deg,#e4efea 0%,#f0f4ed 48%,var(--paper) 100%)}
+.photo-stage.empty .photo-caption{position:static;padding:0;border:0;border-radius:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
+.photo-placeholder{flex:1;min-width:0;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:1px dashed var(--line);border-radius:12px;background:rgba(255,255,255,.45);color:var(--sub)}
+.photo-placeholder :deep(.app-icon){width:26px;height:26px;opacity:.6}
+.photo-placeholder span{font-size:.64rem;text-align:center}
 .diary-photos .photo-heading{font-weight:700}
 .diary-photos .photo-heading small{font-weight:400;color:var(--sub)}
 .photo-row{display:flex;align-items:center;gap:10px}
 .diary-photos .detail-gallery{flex:1;min-width:0;margin-bottom:0;scroll-snap-type:x mandatory}
 .photo-row .photo-actions{display:flex;flex-direction:column;flex-shrink:0;gap:8px;margin:0}
-.photo-row .outline-button{display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;cursor:pointer}
+.photo-row .outline-button{width:44px;height:44px;padding:10px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;cursor:pointer}
 .diary-photos .gallery-image{flex:0 0 112px;height:96px;border:0;border-radius:12px;scroll-snap-align:start}
 .diary-photos .gallery-image.selected{outline:3px solid var(--sage);outline-offset:-3px}
 .photo-caption{position:absolute;bottom:16px;left:var(--page-left,22px);right:var(--page-right,22px);padding:14px 16px;border:1px solid rgba(255,255,255,.65);border-radius:18px;background:rgba(255,255,255,.78);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--text)}
