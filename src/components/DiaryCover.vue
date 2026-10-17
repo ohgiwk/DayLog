@@ -3,10 +3,12 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { coverOpacity, coverOffset } from '../lib/cover-pull'
 defineProps<{ src: string; stretch?: number; pulling?: boolean }>()
 const space = ref<HTMLElement>()
+const visible = ref(false)
 const left = ref(0), width = ref(0), opacity = ref(coverOpacity(window.scrollY)), offset = ref(coverOffset(window.scrollY))
 let observer: ResizeObserver | undefined, frame = 0
 function measure() {
  const bounds = space.value?.getBoundingClientRect()
+ visible.value = !!bounds && bounds.width > 0 && !!space.value?.getClientRects().length
  if (bounds && bounds.width > 0) { left.value = bounds.left; width.value = bounds.width }
 }
 function scroll() {
@@ -34,13 +36,13 @@ onBeforeUnmount(() => {
 </script>
 <template>
  <div v-if="src" ref="space" class="diary-cover-space" :class="{pulling}" aria-hidden="true">
-  <div class="diary-cover" :class="{pulling}" :style="{left:left+'px',width:width?width+'px':'100%',height:(360+(stretch||0))+'px',opacity,transform:`translate3d(0,${offset}px,0)`,'--cover-scale':1+(stretch||0)/360}"><img :src="src" alt="" /></div>
+  <div class="diary-cover" :class="{pulling,'status-photo-visible':visible}" :style="{left:left+'px',width:width?width+'px':'100%',height:`calc(${360+(stretch||0)}px + env(safe-area-inset-top,0px))`,opacity,transform:`translate3d(0,${offset}px,0)`,'--cover-scale':1+(stretch||0)/360}"><img :src="src" alt="" /></div>
  </div>
 </template>
 <style scoped>
 .diary-cover-space{width:100%;height:360px;pointer-events:none;transition:height 240ms cubic-bezier(.2,.7,.3,1)}
-.diary-cover{position:fixed;top:env(safe-area-inset-top,0px);z-index:-1;height:360px;overflow:hidden;pointer-events:none;transition:height 240ms cubic-bezier(.2,.7,.3,1);mask-image:linear-gradient(to bottom,#000 0%,#000 55%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 55%,transparent 100%);will-change:opacity,transform}
-.diary-cover img{display:block;width:100%;height:360px;transform:scale(var(--cover-scale,1));transform-origin:center top;transition:transform 240ms cubic-bezier(.2,.7,.3,1);object-fit:cover;object-position:center center}
+.diary-cover{position:fixed;top:0;z-index:-1;height:360px;overflow:hidden;pointer-events:none;transition:height 240ms cubic-bezier(.2,.7,.3,1);mask-image:linear-gradient(to bottom,#000 0%,#000 55%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 55%,transparent 100%);will-change:opacity,transform}
+.diary-cover img{display:block;width:100%;height:calc(360px + env(safe-area-inset-top,0px));transform:scale(var(--cover-scale,1));transform-origin:center top;transition:transform 240ms cubic-bezier(.2,.7,.3,1);object-fit:cover;object-position:center center}
 .pulling,.diary-cover.pulling img{transition:none}
 @media(prefers-reduced-motion:reduce){.diary-cover-space,.diary-cover,.diary-cover img{transition:none}}
 </style>

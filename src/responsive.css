@@ -108,6 +108,11 @@ main {
   height: 0;
 }
 
+/* Let a visible diary photo continue behind the translucent system status bar. */
+.app-shell:has(.status-photo-visible)::before {
+  background: transparent;
+}
+
 /* Blend the status-bar area into the update notice while keeping its controls below the notch. */
 .app-shell:has(> .update-notice) {
   padding-top: 0;
