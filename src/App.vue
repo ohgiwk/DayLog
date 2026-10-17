@@ -9,9 +9,11 @@ import { scheduleSync, setEditingCheck, startSync, syncState } from './lib/diary
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import DeleteConfirmation from './components/DeleteConfirmation.vue'
 import UpdateNotice from './components/UpdateNotice.vue'
-import { saveSettings, settings } from './stores/diary'
+import { existingJournalPath } from './lib/journal-navigation'
+import { entries, saveSettings, settings } from './stores/diary'
 saveSettings()
 const route=useRoute(), router=useRouter()
+const writeTarget = computed(() => existingJournalPath(entries.value) || '/journal')
 const authScreen = computed(() => isAuthPath(route.path))
 setEditingCheck(() => route.path === '/journal' || route.path.startsWith('/entry/'))
 startSync()
@@ -53,7 +55,7 @@ function animateTab(event: MouseEvent) {
   <nav v-if="account.ready && account.user && !authScreen && route.path!='/journal'" class="tabbar" aria-label="メインメニュー" @click="animateTab">
    <RouterLink to="/" aria-label="ホーム"><span><AppIcon name="home" /></span><small>ホーム</small></RouterLink>
    <RouterLink to="/records" aria-label="記録"><span><AppIcon name="records" /></span><small>記録</small></RouterLink>
-   <RouterLink to="/journal" class="write-tab" aria-label="日記を書く"><span><AppIcon name="notebook-pen" /></span><small>日記を書く</small></RouterLink>
+   <RouterLink :to="writeTarget" class="write-tab" aria-label="日記を書く"><span><AppIcon name="notebook-pen" /></span><small>日記を書く</small></RouterLink>
    <RouterLink to="/memos" aria-label="メモ"><span><AppIcon name="note" /></span><small>メモ</small></RouterLink>
    <RouterLink to="/insights" aria-label="振り返り"><span><AppIcon name="chart" /></span><small>振り返り</small></RouterLink>
   </nav>
