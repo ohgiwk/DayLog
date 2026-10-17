@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { registerUpdatePreparation } from '../lib/update-preparation'
 import LegacyMemoImport from '../components/LegacyMemoImport.vue'
 import { setMemoEditingCheck, scheduleMemoSync } from '../lib/memo-sync'
 import AppIcon from "../components/AppIcon.vue"
@@ -203,11 +204,16 @@ async function removeFolder() {
  if (!await confirmDelete({ title: 'フォルダを削除しますか？', message: `「${folder.value?.name}」と中のメモ${notes.value.length}件を削除します。削除すると元に戻せません。` })) return
  if (await commit({ folders: library.value.folders.filter(f => f.id !== folderId.value).map(f => ({ ...f })), notes: library.value.notes.filter(n => n.folderId !== folderId.value).map(n => ({ ...n })) })) { folderId.value = ''; folderName.value = '' }
 }
+const stopUpdatePreparation = registerUpdatePreparation(async () => {
+ if (busy.value) return false
+ if (dirty.value) await save()
+ return !dirty.value
+})
 function beforeUnload(e: BeforeUnloadEvent) { if (dirty.value || busy.value) { e.preventDefault(); e.returnValue = '' } }
 window.addEventListener('beforeunload', beforeUnload)
 document.addEventListener('pointerdown', dismissFolderMenu)
 document.addEventListener('keydown', escapeFolderMenu)
-onBeforeUnmount(() => { disposed = true; stopMemoChanges(); setMemoEditingCheck(() => false); scheduleMemoSync(); window.removeEventListener('beforeunload', beforeUnload); document.removeEventListener('pointerdown', dismissFolderMenu); document.removeEventListener('keydown', escapeFolderMenu); createDialog.value?.close() })
+onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; stopMemoChanges(); setMemoEditingCheck(() => false); scheduleMemoSync(); window.removeEventListener('beforeunload', beforeUnload); document.removeEventListener('pointerdown', dismissFolderMenu); document.removeEventListener('keydown', escapeFolderMenu); createDialog.value?.close() })
 onBeforeRouteLeave(() => !busy.value && discard())
 </script>
 

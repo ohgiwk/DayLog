@@ -107,3 +107,11 @@ main {
   width: 0;
   height: 0;
 }
+
+/* Blend the status-bar area into the update notice while keeping its controls below the notch. */
+.app-shell:has(> .update-notice) {
+  padding-top: 0;
+}
+.app-shell:has(> .update-notice)::before {
+  background: #edf4ef;
+}

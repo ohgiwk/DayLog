@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppIcon from "../components/AppIcon.vue"
 
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { baseQuestions, buildGuess, visibleActivityQuestions } from '../data/questions'
 import { entries } from '../stores/diary'
@@ -9,6 +9,7 @@ import { dateKey } from '../lib/records-calendar'
 import { journalDate } from '../lib/journal-date'
 import type { DiaryEntry, MoodValue, QuestionNode } from '../types'
 import DiaryEditor from '../components/DiaryEditor.vue'
+import { registerUpdatePreparation } from '../lib/update-preparation'
 import { fadeView } from '../lib/fade-view'
 const router=useRouter(),step=ref(0),answers=ref<Record<string,string>>({}),stage=ref<'questions'|'finish'>('finish'),initial=ref<DiaryEntry>()
 const page=ref<HTMLElement>()
@@ -63,6 +64,8 @@ function skipAll(){
  answers.value=next
  finish()
 }
+const stopUpdatePreparation=registerUpdatePreparation(()=>stage.value!=='questions'||!!editor.value?.applyAnswers(answers.value))
+onBeforeUnmount(stopUpdatePreparation)
 function back(){if(stage.value==='finish'){router.push(isToday?'/':'/records')}else if(step.value>0){const key=questions.value[step.value-1]?.id;const next={...answers.value};delete next[key];answers.value=next;step.value--}else finish()}
 </script>
 <template><div ref="page" class="journal-page">

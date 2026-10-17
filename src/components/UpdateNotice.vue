@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
+import { prepareEditorsForUpdate } from '../lib/update-preparation'
 import { prepareAppUpdate, startUpdateChecks } from '../lib/app-update'
 
-const route = useRoute()
 const latest = ref<string | null>(null)
 const dismissed = ref<string | null>(null)
 const updating = ref(false), updateError = ref('')
-const editing = computed(() => route.path === '/journal' || route.path.startsWith('/entry/'))
 let stop: (() => void) | undefined
 onMounted(() => {
  if (import.meta.env.PROD && !Capacitor.isNativePlatform()) {
@@ -17,10 +15,20 @@ onMounted(() => {
 })
 onBeforeUnmount(() => stop?.())
 async function update() {
- if (editing.value || !latest.value || updating.value) return
+ if (!latest.value || updating.value) return
  updating.value = true; updateError.value = ''
  try {
+  if (!await prepareEditorsForUpdate()) {
+   updateError.value = '入力内容を保存できませんでした。保存状態を確認してから、もう一度更新してください。'
+   updating.value = false
+   return
+  }
   const target = await prepareAppUpdate(window.location.href, latest.value)
+  if (!await prepareEditorsForUpdate()) {
+   updateError.value = '入力内容を保存できませんでした。保存状態を確認してから、もう一度更新してください。'
+   updating.value = false
+   return
+  }
   window.location.replace(target)
  } catch {
   updateError.value = '更新を取得できませんでした。通信を確認して、もう一度お試しください。'
@@ -33,18 +41,18 @@ async function update() {
  <aside v-if="latest && latest !== dismissed" class="update-notice" aria-label="アプリの更新">
   <div role="status" aria-live="polite">
    <strong>新しいバージョンが利用できます</strong>
-   <p>{{ editing ? '日記を保存してホームに戻ると更新できます。' : '更新すると、新しい機能や改善が反映されます。' }}</p>
+   <p>入力内容を保存してから、新しいバージョンに更新します。</p>
   </div>
   <p v-if="updateError" role="alert">{{ updateError }}</p>
   <div class="update-actions">
    <button type="button" class="update-later" :disabled="updating" @click="dismissed = latest">あとで</button>
-   <button type="button" class="update-now" :disabled="editing || updating" @click="update">{{ updating ? '更新中…' : '更新する' }}</button>
+   <button type="button" class="update-now" :disabled="updating" @click="update">{{ updating ? '更新中…' : '更新する' }}</button>
   </div>
  </aside>
 </template>
 
 <style scoped>
-.update-notice { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 40; padding: 14px 20px; background: #edf4ef; color: var(--forest); border-bottom: 1px solid var(--line); }
+.update-notice { position: sticky; top: 0; z-index: 40; padding: calc(env(safe-area-inset-top, 0px) + 14px) 20px 14px; background: #edf4ef; color: var(--forest); border-bottom: 1px solid var(--line); }
 .update-notice strong { font-size: .88rem; }
 .update-notice p { margin: 6px 0 10px; font-size: .76rem; line-height: 1.6; }
 .update-actions { display: flex; justify-content: flex-end; gap: 10px; }

@@ -13,6 +13,7 @@ import { confirmDelete } from '../lib/delete-confirmation'
 import TrashIcon from './TrashIcon.vue'
 import { baseQuestions, activityQuestions } from '../data/questions'
 import { editAnswer, editAnswers } from '../lib/edit-answer'
+import { registerUpdatePreparation } from '../lib/update-preparation'
 import { hasDiaryContent } from '../lib/diary-content'
 const props = defineProps<{ initial: DiaryEntry; isNew?: boolean }>()
 const emit = defineEmits<{ deleted: [] }>()
@@ -119,11 +120,15 @@ onBeforeRouteLeave(async () => {
  if (pending) await pending
  return deleted || !unsaved || save()
 })
+const stopUpdatePreparation = registerUpdatePreparation(async () => {
+ if (pending) await pending
+ return deleted || save()
+})
 function beforeUnload(event: BeforeUnloadEvent) {
  if (unsaved || busy.value) { event.preventDefault(); event.returnValue = '' }
 }
 window.addEventListener('beforeunload', beforeUnload)
-onBeforeUnmount(() => { disposed = true; window.removeEventListener('beforeunload', beforeUnload); photos.value.forEach(p => URL.revokeObjectURL(p.url)) })
+onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeEventListener('beforeunload', beforeUnload); photos.value.forEach(p => URL.revokeObjectURL(p.url)) })
 </script>
 <template>
  <div class="diary-editor">

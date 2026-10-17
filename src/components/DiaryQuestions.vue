@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
+import { registerUpdatePreparation } from '../lib/update-preparation'
 import AppIcon from './AppIcon.vue'
 import { baseQuestions, visibleActivityQuestions } from '../data/questions'
-const props = defineProps<{ initialAnswers: Record<string, string> }>()
+const props = defineProps<{ initialAnswers: Record<string, string>; saveAnswers: (answers: Record<string,string>) => boolean }>()
 const emit = defineEmits<{ complete: [answers: Record<string, string>] }>()
 const answers = ref({ ...props.initialAnswers })
+const stopUpdatePreparation = registerUpdatePreparation(() => props.saveAnswers({ ...answers.value }))
+onBeforeUnmount(stopUpdatePreparation)
 const step = ref(0)
 const questions = computed(() => [...baseQuestions, ...visibleActivityQuestions(answers.value)])
 const current = computed(() => questions.value[step.value])
