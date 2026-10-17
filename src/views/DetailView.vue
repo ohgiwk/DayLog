@@ -85,7 +85,9 @@ async function removeDiary() {
 .question-fab:hover{filter:brightness(1.1)}
 .question-fab:focus-visible{outline:3px solid var(--sage);outline-offset:4px}
 .question-fab:disabled{opacity:.5;cursor:wait}
-.detail-nav{position:absolute;top:20px;left:var(--page-left,22px);right:var(--page-right,22px);z-index:10;align-items:center;margin:0}
+.detail-nav{position:fixed;top:calc(env(safe-area-inset-top,0px) + 16px);left:50%;right:auto;transform:translateX(-50%);width:min(var(--app-width,430px),100%);padding:0 var(--page-right,22px) 0 var(--page-left,22px);z-index:30;align-items:center;margin:0;pointer-events:none}
+.detail-nav>button,.detail-nav>.diary-menu{pointer-events:auto}
+.detail-nav>button,.detail-nav .diary-menu-trigger{background:rgba(255,255,255,.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 2px 10px rgba(32,50,44,.08)}
 .detail-nav>button,.diary-menu-trigger{background:rgba(255,255,255,.85);border-radius:50%}
 .diary-date{margin:0 0 16px;font-size:.8rem;line-height:1.6;color:var(--sub)}
 .back-icon{display:block;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -95,7 +97,7 @@ async function removeDiary() {
 .diary-menu-trigger{display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--forest);cursor:pointer;transition:transform 160ms ease,background-color 160ms ease}
 .diary-menu-trigger:active{transform:scale(.88)}
 .diary-menu-trigger :deep(.app-icon){width:24px;height:24px;stroke-width:3.5}
-.diary-menu-trigger:hover,.diary-menu-trigger:active,.diary-menu-trigger[aria-expanded="true"]{background:rgba(255,255,255,.6)}
+.diary-menu-trigger:hover,.diary-menu-trigger:active,.diary-menu-trigger[aria-expanded="true"]{background:rgba(255,255,255,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 .diary-menu-enter-active,.diary-menu-leave-active{transition:opacity 160ms ease,transform 160ms ease;transform-origin:top right}
 .diary-menu-enter-from,.diary-menu-leave-to{opacity:0;transform:translateY(-6px) scale(.94)}
 .diary-menu-panel{position:absolute;top:calc(100% + 6px);right:0;z-index:30;min-width:170px;padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow)}
@@ -106,4 +108,10 @@ async function removeDiary() {
 @media(prefers-reduced-motion:reduce){.diary-menu-trigger,.diary-menu-enter-active,.diary-menu-leave-active{transition:none}.diary-menu-trigger:active,.diary-menu-enter-from,.diary-menu-leave-to{transform:none}}
 :global(.reduce-motion) .diary-menu-trigger,:global(.reduce-motion) .diary-menu-enter-active,:global(.reduce-motion) .diary-menu-leave-active{transition:none}
 :global(.reduce-motion) .diary-menu-trigger:active,:global(.reduce-motion) .diary-menu-enter-from,:global(.reduce-motion) .diary-menu-leave-to{transform:none}
+
+.detail-nav>button{transition:transform 160ms ease,background-color 160ms ease}
+.detail-nav>button:active{transform:scale(.88)}
+@media(prefers-reduced-motion:reduce){.detail-nav>button{transition:none}.detail-nav>button:active{transform:none}}
+:global(.reduce-motion) .detail-nav>button{transition:none}
+:global(.reduce-motion) .detail-nav>button:active{transform:none}
 </style>
