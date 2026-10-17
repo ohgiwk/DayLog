@@ -33,7 +33,7 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
- <div v-if="src" ref="space" class="diary-cover-space" :class="{pulling}" :style="{height:(360+(stretch||0))+'px'}" aria-hidden="true">
+ <div v-if="src" ref="space" class="diary-cover-space" :class="{pulling}" aria-hidden="true">
   <div class="diary-cover" :class="{pulling}" :style="{left:left+'px',width:width?width+'px':'100%',height:(360+(stretch||0))+'px',opacity,transform:`translate3d(0,${offset}px,0)`,'--cover-scale':1+(stretch||0)/360}"><img :src="src" alt="" /></div>
  </div>
 </template>

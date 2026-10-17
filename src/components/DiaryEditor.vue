@@ -35,10 +35,12 @@ const saveError = ref(''), photoError = ref(''), busy = ref(false), lightbox = r
 const editorRoot = ref<HTMLElement>()
 const pullDistance = ref(0), pullingCover = ref(false), pullReady = ref(false)
 let touchStart: { x: number; y: number } | undefined
-let rawPull = 0
+let rawPull = 0, stretchFrame = 0
+let touchLocked = false
 let wheelTimer: ReturnType<typeof setTimeout> | undefined
 function resetPull() {
  clearTimeout(wheelTimer)
+ cancelAnimationFrame(stretchFrame); stretchFrame = 0; touchLocked = false
  touchStart = undefined; rawPull = 0
  pullingCover.value = false; pullReady.value = false; pullDistance.value = 0
 }
@@ -47,12 +49,16 @@ function ignorePull(target: EventTarget | null) {
 }
 function stretchCover(distance: number) {
  rawPull = Math.max(0,distance)
- pullingCover.value = rawPull > 0
- pullDistance.value = coverStretch(rawPull)
- pullReady.value = shouldExpandCover(rawPull)
+ if (stretchFrame) return
+ stretchFrame = requestAnimationFrame(() => {
+  pullingCover.value = rawPull > 0
+  pullDistance.value = coverStretch(rawPull)
+  pullReady.value = shouldExpandCover(rawPull)
+  stretchFrame = 0
+ })
 }
 function releaseCover() {
- const expand = pullReady.value
+ const expand = shouldExpandCover(rawPull)
  resetPull()
  if (expand && coverUrl.value) lightbox.value = coverUrl.value
 }
@@ -66,16 +72,20 @@ function moveCoverPull(event: TouchEvent) {
  if (!touchStart) return
  if (event.touches.length !== 1) { resetPull(); return }
  const touch = event.touches[0]!, dy = touch.clientY-touchStart.y, dx = touch.clientX-touchStart.x
- if (dy <= 0 || Math.abs(dx) > Math.abs(dy)) { resetPull(); return }
+ if (!touchLocked) {
+  if (Math.max(Math.abs(dx),Math.abs(dy)) < 8) return
+  if (dy <= 0 || Math.abs(dx) > Math.abs(dy)) { resetPull(); return }
+  touchLocked = true
+ }
  if (!event.cancelable) { resetPull(); return }
  event.preventDefault()
+ // Once a pull owns the gesture, continue scrolling smoothly when the finger reverses.
+ window.scrollTo({top:Math.max(0,-dy),behavior:'instant'})
  stretchCover(dy)
 }
 function wheelCoverPull(event: WheelEvent) {
  if (window.scrollY > 1 || event.ctrlKey || ignorePull(event.target) || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
  if (event.deltaY >= 0) { resetPull(); return }
- if (!event.cancelable) return
- event.preventDefault()
  const delta = -event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1)
  stretchCover(rawPull + delta)
  clearTimeout(wheelTimer)
@@ -86,7 +96,7 @@ onMounted(() => {
  editorRoot.value?.addEventListener('touchmove',moveCoverPull,{passive:false})
  editorRoot.value?.addEventListener('touchend',releaseCover)
  editorRoot.value?.addEventListener('touchcancel',resetPull)
- editorRoot.value?.addEventListener('wheel',wheelCoverPull,{passive:false})
+ editorRoot.value?.addEventListener('wheel',wheelCoverPull,{passive:true})
 })
 onBeforeUnmount(() => {
  resetPull()
@@ -197,7 +207,7 @@ window.addEventListener('beforeunload', beforeUnload)
 onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeEventListener('beforeunload', beforeUnload); photos.value.forEach(p => URL.revokeObjectURL(p.url)) })
 </script>
 <template>
- <div ref="editorRoot" class="diary-editor">
+ <div ref="editorRoot" class="diary-editor" :class="{'pulling-content':pullingCover}" :style="{top:pullDistance+'px'}">
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
   <section class="diary-photos" aria-label="今日の写真">
@@ -240,6 +250,9 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
  </div>
 </template>
 <style scoped>
+.diary-editor{position:relative;transition:top 240ms cubic-bezier(.2,.7,.3,1)}
+.diary-editor.pulling-content{transition:none}
+@media(prefers-reduced-motion:reduce){.diary-editor{transition:none}}
 .editor-status{display:flex;align-items:center;justify-content:space-between;gap:12px}.editor-status p{font-size:.75rem;color:var(--sub)}.diary-editor>label{display:flex;flex-direction:column;gap:8px;margin:20px 0;font-size:.8rem;font-weight:700}.diary-editor>label small{font-weight:400;color:var(--sub)}.diary-editor textarea,.diary-editor>label input{width:100%;padding:15px;border:1px solid var(--line);border-radius:18px;background:white;color:var(--text)}.diary-editor textarea:focus-visible,.diary-editor input:focus-visible{outline:2px solid var(--sage)}.photo-heading{font-size:.8rem;margin-bottom:12px}.photo-actions{margin-top:12px}.diary-editor button:disabled{opacity:.5;cursor:wait}
 .photo-lightbox-enter-active,.photo-lightbox-leave-active{transition:opacity 220ms ease}
 .photo-lightbox-enter-active img,.photo-lightbox-leave-active img{transition:transform 220ms cubic-bezier(.2,.7,.3,1)}
