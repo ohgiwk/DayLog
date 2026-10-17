@@ -138,7 +138,7 @@ watch(() => props.modelValue, value => { if (value !== lastEmitted) load() })
 .format-tools button[aria-expanded="true"]{background:var(--mist)}
 .format-menu{position:absolute;z-index:5;top:calc(100% - 2px);right:6px;display:flex;flex-direction:column;gap:2px;padding:6px;border:1px solid var(--line);border-radius:12px;background:white;box-shadow:var(--shadow)}
 .format-menu button{display:flex;justify-content:flex-start;gap:8px;width:auto;min-width:130px;padding:6px 10px;white-space:nowrap}
-.rich-text-field{min-height:260px;padding:15px;outline:none;font-size:.9rem;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
+.rich-text-field{min-height:260px;padding:15px;outline:none;font-size:max(16px,1rem);line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
 .rich-text-field:empty:before{content:attr(data-placeholder);color:var(--sub);pointer-events:none}
 .rich-text-field :deep(p),.rich-text-field :deep(div){margin:0}
 .rich-text-field :deep(ul),.rich-text-field :deep(ol){padding-left:1.5em;margin:8px 0}

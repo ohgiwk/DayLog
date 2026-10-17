@@ -292,6 +292,6 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .answer-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:10px;padding:5px 0;font-size:.75rem;line-height:1.5}
 .answer-field>span{overflow-wrap:anywhere}
 .answer-field+.answer-field{border-top:1px solid var(--line)}
-.answer-field select{width:100%;min-width:0;min-height:44px;padding:8px 4px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--text);font:inherit}
+.answer-field select{width:100%;min-width:0;min-height:44px;padding:8px 4px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--text);font:inherit;font-size:max(16px,1rem)}
 .answer-field select:focus-visible,.diary-answers summary:focus-visible{outline:2px solid var(--sage);outline-offset:3px}
 </style>

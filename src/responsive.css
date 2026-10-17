@@ -7,8 +7,17 @@
 
 /* Keep the viewport behind iOS overscroll the same color as the safe area. */
 html {
+  touch-action: pan-x pan-y;
   background: var(--status-bar, #deeee7);
   overscroll-behavior-y: none;
+}
+
+/* Keep diary controls above the mobile focus-zoom threshold. */
+.diary-editor input,
+.diary-editor textarea,
+.diary-editor select,
+.diary-editor .rich-text-field {
+  font-size: max(16px, 1rem);
 }
 
 body {
