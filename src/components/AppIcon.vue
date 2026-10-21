@@ -3,6 +3,9 @@ import { computed } from 'vue'
 const props = defineProps<{ name: string }>()
 const aliases: Record<string, string> = { '😌':'smile', '🙂':'smile', '🌿':'leaf', '🌧️':'cloud', '🌙':'moon', '☀️':'sun', '☁️':'cloud', '🍃':'leaf', '○':'circle', '◌':'circle-dashed', '—':'minus', '…':'more', '🚶':'walk', '🏃':'walk', '🧘':'person', '🏸':'activity' }
 const paths: Record<string, string> = {
+ 'calendar-month':'M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM7 2v4M17 2v4M3 10h18M7 14h.01M12 14h.01M17 14h.01M7 18h.01M12 18h.01M17 18h.01',
+ 'calendar-week':'M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM7 2v4M17 2v4M3 10h18M7 15h10',
+ 'calendar-hidden':'M9 4h10a2 2 0 0 1 2 2v10M17 2v4M3 10h7M3 7v12a2 2 0 0 0 2 2h12M3 3l18 18',
  refresh:'M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 2M4 17l2 2a8 8 0 0 0 13-3',
  image:'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm-2 13 5-5 4 4 3-3 6 6M9 7h.01',
  'message-question':'M5 3h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8l-5 3V5a2 2 0 0 1 2-2ZM9.8 8a2.2 2.2 0 0 1 4.4 0c0 1.5-2.2 1.8-2.2 3.5M12 15h.01',

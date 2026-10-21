@@ -1,26 +1,57 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import EntryThumbnail from '../components/EntryThumbnail.vue'
 import { weatherLabel } from '../lib/diary-weather'
 import { entries, settings } from '../stores/diary'
 import { swipeDirection } from '../lib/calendar-swipe'
-import { calendarDays, dateKey, moveCalendar, type CalendarMode } from '../lib/records-calendar'
+import { calendarDays, dateKey, moveCalendar } from '../lib/records-calendar'
 
-const mode = ref<CalendarMode>('week')
-function toggleCalendar() {
- mode.value = mode.value === 'week' ? 'month' : 'week'
+const mode = 'month' as const
+const calendarDialog = ref<HTMLDialogElement>()
+const calendarOpen = ref(false)
+const calendarClosing = ref(false)
+let closeTimer: ReturnType<typeof setTimeout> | undefined
+let previousOverflow: string | undefined
+function openCalendar() {
+ if (!calendarDialog.value || calendarOpen.value) return
+ resetGesture()
+ calendarDialog.value.showModal()
+ calendarOpen.value = true
+ previousOverflow = document.body.style.overflow
+ document.body.style.overflow = 'hidden'
+}
+function closeCalendar() {
+ if (!calendarDialog.value?.open || calendarClosing.value) return
+ resetGesture()
+ if (settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  calendarDialog.value.close()
+  return
+ }
+ calendarClosing.value = true
+ closeTimer = setTimeout(() => calendarDialog.value?.close(), 200)
+}
+function calendarClosed() {
+ clearTimeout(closeTimer)
+ calendarClosing.value = false
+ calendarOpen.value = false
+ resetGesture()
+ if (previousOverflow !== undefined) document.body.style.overflow = previousOverflow
+ previousOverflow = undefined
+}
+function closeOnDate(event: MouseEvent) {
+ if (event.target instanceof Element && event.target.closest('a') && !event.defaultPrevented) closeCalendar()
+}
+function backdropClick(event: MouseEvent) {
+ if (event.target !== calendarDialog.value) return
+ const bounds = calendarDialog.value.getBoundingClientRect()
+ if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeCalendar()
 }
 const anchor = ref(new Date())
-const cells = computed(() => calendarDays(anchor.value, mode.value))
+const cells = computed(() => calendarDays(anchor.value, mode))
 const entriesByDate = computed(() => new Map(entries.value.map(entry => [entry.date, entry])))
 const monthFormat = new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: 'long' })
-const dayFormat = new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric' })
-const title = computed(() => {
- if (mode.value === 'month') return monthFormat.format(anchor.value)
- const first = cells.value[0]!, last = cells.value[6]!
- return `${first.getFullYear()}年 ${dayFormat.format(first)}〜${first.getFullYear() !== last.getFullYear() ? last.getFullYear() + '年 ' : ''}${dayFormat.format(last)}`
-})
+const title = computed(() => monthFormat.format(anchor.value))
 const viewport = ref<HTMLElement>()
 const track = ref<HTMLElement>()
 const dragging = ref(false), settling = ref(false)
@@ -32,7 +63,7 @@ function setOffset(value: number) {
 }
 const panels = computed(() => [-1, 0, 1].map(direction => ({
  direction,
- days: calendarDays(direction ? moveCalendar(anchor.value, mode.value, direction) : anchor.value, mode.value),
+ days: calendarDays(direction ? moveCalendar(anchor.value, mode, direction) : anchor.value, mode),
 })))
 const calendarHeight = computed(() => (dragging.value || settling.value
  ? Math.max(...panels.value.map(panel => panel.days.length)) : cells.value.length) / 7 * 48)
@@ -61,7 +92,7 @@ async function move(direction: number) {
  animation = effect
  try { await effect.finished } catch { return }
  if (token !== generation) return
- if (direction) anchor.value = moveCalendar(anchor.value, mode.value, direction)
+ if (direction) anchor.value = moveCalendar(anchor.value, mode, direction)
  setOffset(0)
  await nextTick()
  effect.cancel(); animation = undefined; settling.value = false
@@ -106,8 +137,7 @@ function pointerEnd(event: PointerEvent) {
 function preventSwipeClick(event: MouseEvent) {
  if (Date.now() < suppressClickUntil) { event.preventDefault(); event.stopPropagation() }
 }
-watch(mode, resetGesture, { flush: 'sync' })
-onBeforeUnmount(resetGesture)
+onBeforeUnmount(() => { clearTimeout(closeTimer); calendarDialog.value?.close(); calendarClosed() })
 function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 </script>
 
@@ -117,13 +147,20 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
    <p class="eyebrow">YOUR MOMENTS</p>
    <div class="records-heading">
     <h1>記録</h1>
+    <button class="calendar-switch" type="button" aria-label="カレンダーを開く" title="カレンダーを開く" aria-haspopup="dialog" :aria-expanded="calendarOpen" aria-controls="records-calendar-dialog" @click="openCalendar"><AppIcon name="calendar-month" /></button>
    </div>
-   <section class="records-calendar" aria-label="記録カレンダー">
+
+
+  </header>
+  <Teleport to="body">
+   <dialog id="records-calendar-dialog" ref="calendarDialog" class="calendar-dialog" :class="{ 'without-animation': settings.reducedMotion, closing: calendarClosing }" aria-labelledby="calendar-dialog-title" @cancel.prevent="closeCalendar" @close="calendarClosed" @click="backdropClick">
+    <div class="calendar-dialog-heading"><h2 id="calendar-dialog-title">カレンダー</h2><button type="button" class="calendar-switch" aria-label="カレンダーを閉じる" @click="closeCalendar"><AppIcon name="close" /></button></div>
+   <section class="records-calendar" aria-label="記録カレンダー" @click="closeOnDate">
     <div id="records-calendar-content">
     <div class="month-nav">
-     <button type="button" :aria-label="mode === 'month' ? '前の月' : '前の週'" @click="move(-1)"><AppIcon name="chevron-left" /></button>
+     <button type="button" aria-label="前の月" @click="move(-1)"><AppIcon name="chevron-left" /></button>
      <h2 aria-live="polite">{{ title }}</h2>
-     <button type="button" :aria-label="mode === 'month' ? '次の月' : '次の週'" @click="move(1)"><AppIcon name="chevron-right" /></button>
+     <button type="button" aria-label="次の月" @click="move(1)"><AppIcon name="chevron-right" /></button>
     </div>
     <div class="week" aria-hidden="true"><span v-for="day in ['日','月','火','水','木','金','土']" :key="day">{{ day }}</span></div>
     <div ref="viewport" class="calendar-days" :class="{ dragging }" :style="{ height: `${calendarHeight}px` }"
@@ -141,9 +178,9 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
     </div>
     </div>
     </div>
-    <button type="button" class="calendar-handle" :aria-label="mode === 'week' ? '月全体を表示' : '1週間を表示'" :title="mode === 'week' ? '月全体を表示' : '1週間を表示'" :aria-expanded="mode === 'month'" aria-controls="records-calendar-content" @click="toggleCalendar"><span aria-hidden="true"></span></button>
    </section>
-  </header>
+   </dialog>
+  </Teleport>
   <section class="recent-list" aria-label="日記の一覧">
    <p v-if="!entries.length" class="soft-card">まだ日記がありません。日記を書くと、ここに表示されます。</p>
    <RouterLink v-for="e in entries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': e.thumbnailImageId }"><div v-if="e.thumbnailImageId" class="entry-photo"><EntryThumbnail :id="e.thumbnailImageId"/></div><div class="entry-icon" v-if="!e.thumbnailImageId"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div class="entry-content"><small>{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{e.guess.trim() || '無題の日記'}}</h3><p v-if="e.tags.length"><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b><div v-if="e.environment?.weather || e.environment?.place" class="entry-environment"><span v-if="e.environment?.weather" class="entry-weather"><AppIcon :name="e.environment.weather.code < 3 ? 'sun' : 'cloud'" /><span>{{ weatherLabel(e.environment.weather.code) }} <span class="high" aria-label="最高気温">↑{{ Math.round(e.environment.weather.high) }}°</span> <span class="low" aria-label="最低気温">↓{{ Math.round(e.environment.weather.low) }}°</span></span></span><span v-if="e.environment?.place" class="entry-place"><AppIcon name="pin" /><span>{{ e.environment.place }}</span></span></div></RouterLink>
@@ -152,10 +189,25 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 </template>
 
 <style scoped>
-.calendar-handle{display:flex;align-items:center;justify-content:center;width:100%;height:20px;margin:4px auto 0;padding:8px 12px;border:0;border-radius:12px;background:transparent;cursor:pointer}
-.calendar-handle span{width:32px;height:4px;flex-shrink:0;border-radius:999px;background:var(--sage)}
-.calendar-handle:hover{background:rgba(255,255,255,.3)}
-.calendar-handle:focus-visible{outline:2px solid var(--forest);outline-offset:2px}
+.calendar-dialog { width: min(430px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 18px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); overflow-y: auto; }
+.calendar-dialog::backdrop { background: rgba(14,24,20,.45); }
+.calendar-dialog[open] { animation: calendar-appear 240ms cubic-bezier(.2,.7,.3,1); }
+.calendar-dialog[open]::backdrop { animation: calendar-backdrop-appear 240ms ease-out; }
+.calendar-dialog[open].closing { animation: calendar-disappear 200ms ease-in forwards; pointer-events: none; }
+.calendar-dialog[open].closing::backdrop { animation: calendar-backdrop-disappear 200ms ease-in forwards; }
+@keyframes calendar-disappear { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(12px) scale(.97); } }
+@keyframes calendar-backdrop-disappear { from { opacity: 1; } to { opacity: 0; } }
+@keyframes calendar-appear { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes calendar-backdrop-appear { from { opacity: 0; } to { opacity: 1; } }
+.calendar-dialog.without-animation[open], .calendar-dialog.without-animation[open]::backdrop { animation: none; }
+@media (prefers-reduced-motion: reduce) { .calendar-dialog[open], .calendar-dialog[open]::backdrop { animation: none; } }
+
+.calendar-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.calendar-dialog-heading h2 { margin: 0; font-size: 1.1rem; }
+
+.calendar-switch { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.65); color: var(--forest); cursor: pointer; }
+.calendar-switch :deep(.app-icon) { width: 22px; height: 22px; }
+.calendar-switch:focus-visible { outline: 2px solid var(--forest); outline-offset: 2px; }
 /* Clipping must not create a separate scroll container for the sticky header. */
 :global(.app-shell:has(.records-page)) { overflow: clip; }
 .records-header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 15; padding-bottom: 4px; box-shadow: 0 6px 14px rgba(32,50,44,.06); }
@@ -184,6 +236,16 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 .days a, .days b { width: 42px; height: 42px; }
 .days .written a{background:var(--forest);color:white;border-radius:50%}
 .days .written i{background:rgba(255,255,255,.8)}
+.week > span:first-child,
+.days > span:nth-child(7n + 1) a,
+.days > span:nth-child(7n + 1) b { color: #b34d48; }
+.week > span:last-child,
+.days > span:nth-child(7n) a,
+.days > span:nth-child(7n) b { color: #3477ad; }
+.days > span.written:nth-child(7n + 1) a { background: #f9e9e7; }
+.days > span.written:nth-child(7n + 1) i { background: #b34d48; }
+.days > span.written:nth-child(7n) a { background: #e6eff9; }
+.days > span.written:nth-child(7n) i { background: #3477ad; }
 .days [aria-current="date"] { outline: 1px solid var(--sage); outline-offset: -2px; }
 .entry-row { grid-template-columns: 64px minmax(0, 1fr) 12px; }
 .entry-row > div { min-width: 0; }
