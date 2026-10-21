@@ -11,7 +11,7 @@ import { diaryScope, saveEntry, deleteEntry } from '../stores/diary'
 import { compressImage, imageRepository } from '../lib/image-repository'
 import { confirmDelete } from '../lib/delete-confirmation'
 import TrashIcon from './TrashIcon.vue'
-import { baseQuestions, activityQuestions } from '../data/questions'
+import { baseQuestions, activityQuestions, buildGuess } from '../data/questions'
 import { editAnswer, editAnswers } from '../lib/edit-answer'
 import { registerUpdatePreparation } from '../lib/update-preparation'
 import { hasDiaryContent } from '../lib/diary-content'
@@ -20,6 +20,11 @@ const emit = defineEmits<{ deleted: [] }>()
 const owner = diaryScope.userId, ownerGeneration = diaryScope.generation
 const sameOwner = () => owner === diaryScope.userId && ownerGeneration === diaryScope.generation
 const draft = reactive<DiaryEntry>(JSON.parse(JSON.stringify(props.initial)))
+const suggestedTitle = computed(() => buildGuess(draft.answers).text)
+const titleInput = computed({
+ get: () => props.isNew && draft.guess === suggestedTitle.value ? '' : draft.guess,
+ set: (value: string) => { draft.guess = value },
+})
 const questions = computed(() => [...baseQuestions, ...activityQuestions].filter(q => !q.when || q.when(draft.answers)))
 const answerSaved = ref(false)
 function changeAnswer(id: string, event: Event) {
@@ -29,7 +34,12 @@ function changeAnswer(id: string, event: Event) {
 }
 const photos = ref<{id: string; url: string}[]>([])
 const coverUrl = computed(() => photos.value.find(photo => photo.id === draft.thumbnailImageId)?.url || '')
-const dateLabel = computed(() => new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date(draft.date + 'T12:00:00')))
+const dateLabel = computed(() => {
+ const date = new Date(draft.date + 'T12:00:00')
+ const day = new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }).format(date)
+ const weekday = new Intl.DateTimeFormat('ja-JP', { weekday: 'short' }).format(date)
+ return `${day}（${weekday}）`
+})
 const saveError = ref(''), photoError = ref(''), busy = ref(false), lightbox = ref('')
 let unsaved = false, disposed = false, deleted = false, changingPhoto = false
 let persisted = !props.isNew
@@ -138,7 +148,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
   <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" />
   <div class="photo-caption">
   <p class="diary-date">{{dateLabel}}</p>
-  <div class="title-field"><h1 v-if="readonly" class="read-title">{{ draft.guess || '無題の日記' }}</h1><input v-else v-model="draft.guess" aria-label="タイトル" placeholder="日記のタイトル"></div>
+  <div class="title-field"><h1 v-if="readonly" class="read-title">{{ draft.guess || '無題の日記' }}</h1><input v-else v-model="titleInput" aria-label="タイトル" :placeholder="isNew ? suggestedTitle : '日記のタイトル'"></div>
 
   </div>
   </div>
@@ -189,7 +199,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .diary-editor textarea{min-height:260px;line-height:1.8}
 .diary-photos{margin:0 0 20px;padding:0;border:0;background:transparent}
 .photo-stage{position:relative;margin:0 calc(-1 * var(--page-right,22px)) 12px calc(-1 * var(--page-left,22px));min-height:300px}
-.photo-stage.empty{min-height:0;padding:88px var(--page-right,22px) 24px var(--page-left,22px);margin-bottom:20px;background:linear-gradient(150deg,#e4efea 0%,#f0f4ed 48%,var(--paper) 100%)}
+.photo-stage.empty{min-height:0;padding:88px var(--page-right,22px) 24px var(--page-left,22px);margin-bottom:20px;background:var(--paper)}
 .photo-stage.empty .photo-caption{position:static;padding:0;border:0;border-radius:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
 .photo-placeholder{flex:1;min-width:0;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:1px dashed var(--line);border-radius:12px;background:rgba(255,255,255,.45);color:var(--sub)}
 .photo-placeholder :deep(.app-icon){width:26px;height:26px;opacity:.6}
@@ -206,6 +216,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .diary-date{margin:0 0 8px;font-size:.8rem;line-height:1.6;color:var(--sub)}
 .title-field{display:flex;flex-direction:column;gap:4px;margin:0;font-size:.72rem;line-height:1.5;color:var(--sub)}
 .title-field input{padding:4px 0 10px;line-height:1.6;border:0;width:100%;color:var(--text);border-bottom:1px solid var(--sage);border-radius:0;background:transparent;font-size:1.1rem;font-weight:700}
+.title-field input::placeholder{color:var(--sub);opacity:.55;font-weight:400}
 .title-field input:focus-visible{outline:none;border-bottom:2px solid var(--sage);padding-bottom:9px}
 .body-heading{margin-top:20px;font-size:.8rem;font-weight:700}
 .diary-editor>label,.body-heading,.photo-heading,.answer-field>span{color:var(--sub)}

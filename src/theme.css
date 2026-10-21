@@ -80,7 +80,7 @@
 }
 
 .journal-page {
-  background-image: linear-gradient(180deg, transparent, var(--paper) 360px), var(--gradient-hero);
+  background-image: none;
   background-color: var(--paper);
   background-size: 100% 400px;
   background-repeat: no-repeat;
@@ -173,7 +173,8 @@
 }
 
 .detail-page {
-  background-image: linear-gradient(180deg, transparent, var(--paper) 300px), var(--gradient-hero);
+  background-color: var(--paper);
+  background-image: none;
   background-size: 100% 340px;
   background-repeat: no-repeat;
 }

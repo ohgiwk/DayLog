@@ -34,10 +34,9 @@ async function startQuestions(){
 }
 const questions=computed(()=>[...baseQuestions,...visibleActivityQuestions(answers.value)])
 const current=computed<QuestionNode|undefined>(()=>questions.value[step.value])
-const progress=computed(()=>stage.value==='finish'?100:Math.min(88,14+step.value*10))
 function createEntry(){
  const guess=buildGuess(answers.value),now=new Date().toISOString()
- initial.value={id:crypto.randomUUID(),date:targetDate,mood:(Number(answers.value.mood)||3) as MoodValue,condition:Number(answers.value.condition)||3,answers:{...answers.value},tags:guess.tags,guess:guess.text,body:'',tomorrow:'',imageIds:[],createdAt:now,updatedAt:now}
+ initial.value={id:crypto.randomUUID(),date:targetDate,mood:(Number(answers.value.mood)||3) as MoodValue,condition:Number(answers.value.condition)||3,answers:{...answers.value},tags:guess.tags,guess:'',body:'',tomorrow:'',imageIds:[],createdAt:now,updatedAt:now}
 }
 async function finish(){
  if(switchingQuestions.value)return
@@ -69,7 +68,7 @@ onBeforeUnmount(stopUpdatePreparation)
 function back(){if(stage.value==='finish'){router.push(isToday?'/':'/records')}else if(step.value>0){const key=questions.value[step.value-1]?.id;const next={...answers.value};delete next[key];answers.value=next;step.value--}else finish()}
 </script>
 <template><div ref="page" class="journal-page">
- <header class="journal-header" :class="{'photo-header':stage==='finish'}"><button class="icon-button" @click="back" aria-label="戻る"><AppIcon name="chevron-left" /></button><div class="progress"><i :style="{width:progress+'%'}"></i></div><button v-if="stage==='questions'" class="text-button" @click="skipAll">スキップ</button></header>
+ <header class="journal-header" :class="{'photo-header':stage==='finish'}"><button class="icon-button" @click="back" aria-label="戻る"><AppIcon name="chevron-left" /></button><button v-if="stage==='questions'" class="text-button" @click="skipAll">スキップ</button></header>
  <Transition name="question" mode="out-in">
   <section v-if="stage==='questions'&&current" :key="current.id" class="question-pane"><div><p class="eyebrow">{{current.eyebrow||'今日を、もう少しだけ'}}</p><h1>{{current.prompt}}</h1><p class="question-help">考えすぎなくても大丈夫。近いものを選んでください。</p></div><div class="answer-grid" :class="{moods:current.id==='mood'}"><button v-for="o in current.options" :key="o.value" @click="answer(o.value)"><span v-if="o.icon"><AppIcon :name="o.icon" /></span>{{o.label}}<b><AppIcon name="chevron-right" /></b></button></div></section>
 
@@ -79,6 +78,7 @@ function back(){if(stage.value==='finish'){router.push(isToday?'/':'/records')}e
 </div></template>
 
 <style scoped>
+.journal-header>.text-button{grid-column:3}
 .journal-page{position:relative;isolation:isolate}
 .journal-date{margin:0 0 16px;font-size:.8rem;line-height:1.6;color:var(--sub)}
 .finish-pane{padding-top:0;padding-bottom:88px}
