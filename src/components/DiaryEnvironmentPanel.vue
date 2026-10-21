@@ -5,7 +5,7 @@ import EnvironmentMenu from './EnvironmentMenu.vue'
 import { settings } from '../stores/diary'
 import { recordEnvironment, weatherLabel } from '../lib/diary-weather'
 import type { DiaryEnvironment } from '../types'
-const props = defineProps<{ modelValue?: DiaryEnvironment; date: string }>()
+const props = defineProps<{ modelValue?: DiaryEnvironment; date: string; readonly?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: DiaryEnvironment | undefined] }>()
 type Kind = 'location' | 'weather'
 const loading = ref<Kind | null>(null), error = ref('')
@@ -33,21 +33,21 @@ function remove(kind: Kind) {
 onBeforeUnmount(() => { disposed = true; controller?.abort() })
 </script>
 <template>
- <div class="environment-area">
+ <div v-if="!readonly || modelValue?.place || modelValue?.weather" class="environment-area">
   <div class="environment-panels">
-   <div class="environment-panel" aria-label="現在地の記録" :aria-busy="loading==='location'">
+   <div v-if="!readonly || modelValue?.place" class="environment-panel" aria-label="現在地の記録" :aria-busy="loading==='location'">
     <span v-if="modelValue?.place" class="place"><AppIcon name="pin" />{{modelValue.place}}</span>
     <button v-if="!modelValue?.place" type="button" :disabled="!!loading || !settings.location" aria-label="現在地を記録" title="現在地を記録" @click="record('location')"><AppIcon name="pin" />{{loading==='location'?'取得中…':'現在地を記録'}}</button>
-    <EnvironmentMenu v-else label="現在地" align="start" :disabled="!!loading" :update-disabled="!settings.location" @update="record('location')" @remove="remove('location')" />
+    <EnvironmentMenu v-else-if="!readonly" label="現在地" align="start" :disabled="!!loading" :update-disabled="!settings.location" @update="record('location')" @remove="remove('location')" />
    </div>
-   <div class="environment-panel" aria-label="天気の記録" :aria-busy="loading==='weather'">
+   <div v-if="!readonly || modelValue?.weather" class="environment-panel" aria-label="天気の記録" :aria-busy="loading==='weather'">
     <span v-if="modelValue?.weather" class="weather"><AppIcon :name="modelValue.weather.code<3?'sun':'cloud'" />{{weatherLabel(modelValue.weather.code)}}<span class="high" aria-label="最高気温">↑{{Math.round(modelValue.weather.high)}}°</span><span class="low" aria-label="最低気温">↓{{Math.round(modelValue.weather.low)}}°</span></span>
     <button v-if="!modelValue?.weather" type="button" :disabled="!!loading || !settings.weather" aria-label="天気を記録" title="天気を記録" @click="record('weather')"><AppIcon name="cloud" />{{loading==='weather'?'取得中…':'天気を記録'}}</button>
-    <EnvironmentMenu v-else label="天気" :disabled="!!loading" :update-disabled="!settings.weather" @update="record('weather')" @remove="remove('weather')" />
+    <EnvironmentMenu v-else-if="!readonly" label="天気" :disabled="!!loading" :update-disabled="!settings.weather" @update="record('weather')" @remove="remove('weather')" />
    </div>
   </div>
   <p v-if="loading" class="environment-help" role="status">{{loading==='location'?'現在地':'天気'}}を取得中…</p>
-  <p v-if="!settings.location || !settings.weather" class="environment-help">無効な項目は<RouterLink to="/settings">設定</RouterLink>で有効にできます。</p>
+  <p v-if="!readonly && (!settings.location || !settings.weather)" class="environment-help">無効な項目は<RouterLink to="/settings">設定</RouterLink>で有効にできます。</p>
   <p v-if="error" class="environment-error" role="alert">{{error}}</p>
   <details v-if="modelValue" class="environment-sources"><summary>取得情報</summary><p>現在地をもとに、日記の日付の天気を記録しています。当日の気温は予報値です。場所は市区町村までを保存します。</p><p>天気：<a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> · 地名：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></p></details>
  </div>

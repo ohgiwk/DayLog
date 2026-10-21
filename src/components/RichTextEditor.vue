@@ -3,7 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
 import { blockShortcut, inlineShortcut } from '../lib/markdown-shortcuts'
 import { readRichText, sanitizeRichText, writeRichText } from '../lib/rich-text'
-const props = defineProps<{ modelValue: string }>()
+const props = defineProps<{ modelValue: string; readonly?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const field = ref<HTMLDivElement>()
 let lastEmitted: string | undefined
@@ -32,6 +32,7 @@ function load() {
  else field.value.textContent = value.text
 }
 function update() {
+ if (props.readonly) return
  if (!field.value) return
  lastEmitted = writeRichText(field.value.innerHTML, field.value.innerText)
  emit('update:modelValue', lastEmitted)
@@ -103,6 +104,7 @@ function compositionEnd() {
  queueMicrotask(() => { convertMarkdown(); update() })
 }
 function paste(event: ClipboardEvent) {
+ if (props.readonly) return
  event.preventDefault()
  const html = event.clipboardData?.getData('text/html')
  if (html) document.execCommand('insertHTML', false, sanitizeRichText(html))
@@ -113,8 +115,8 @@ onMounted(load)
 watch(() => props.modelValue, value => { if (value !== lastEmitted) load() })
 </script>
 <template>
- <div class="rich-text-editor">
-  <div class="format-tools" role="group" aria-label="本文の書式">
+ <div class="rich-text-editor" :class="{ readonly }">
+  <div v-if="!readonly" class="format-tools" role="group" aria-label="本文の書式">
    <button v-for="tool in tools" :key="tool.command" type="button" :aria-label="tool.label" :title="tool.label" @mousedown.prevent @click="format(tool.command)"><AppIcon :name="tool.icon" /></button>
    <span class="tool-divider" aria-hidden="true"></span>
    <button type="button" aria-label="見出し" title="見出し" :aria-expanded="menu==='heading'" @mousedown.prevent @click="menu=menu==='heading'?null:'heading'"><AppIcon name="heading" /></button>
@@ -124,11 +126,13 @@ watch(() => props.modelValue, value => { if (value !== lastEmitted) load() })
     <template v-else><button v-for="item in sizes" :key="item.value" type="button" @mousedown.prevent @click="format('fontSize',item.value)"><AppIcon name="text" />{{item.label}}</button></template>
    </div>
   </div>
-  <div ref="field" class="rich-text-field" contenteditable="true" role="textbox" aria-label="今日のこと" aria-multiline="true" data-placeholder="今日のできごとや気持ちを自由に書いてください" @focus="menu=null" @keydown.esc="menu=null" @input="input" @compositionstart="compositionStart" @compositionend="compositionEnd" @keyup="rememberSelection" @mouseup="rememberSelection" @focusout="rememberSelection" @paste="paste" @drop.prevent></div>
+  <div ref="field" class="rich-text-field" :contenteditable="!readonly" :role="readonly ? undefined : 'textbox'" :aria-readonly="readonly || undefined" aria-label="今日のこと" aria-multiline="true" :data-placeholder="readonly ? '本文はまだありません。' : '今日のできごとや気持ちを自由に書いてください'" @focus="menu=null" @keydown.esc="menu=null" @input="input" @compositionstart="compositionStart" @compositionend="compositionEnd" @keyup="rememberSelection" @mouseup="rememberSelection" @focusout="rememberSelection" @paste="paste" @drop.prevent></div>
  </div>
 </template>
 <style scoped>
 .rich-text-editor{margin:8px 0 20px;border:1px solid var(--line);border-radius:18px;background:white;overflow:hidden}
+.rich-text-editor.readonly{border:0;background:transparent;overflow:visible}
+.readonly .rich-text-field{min-height:0;padding:8px 0}
 .rich-text-editor:focus-within{outline:2px solid var(--sage)}
 .format-tools{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:6px;border-bottom:1px solid var(--line);background:var(--paper)}
 .format-tools button{border:0;border-radius:8px;background:transparent;color:var(--forest);display:grid;place-items:center;width:32px;height:36px;flex-shrink:0;padding:6px;font-size:.78rem;cursor:pointer}

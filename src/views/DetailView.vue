@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onBeforeUnmount, ref, shallowRef } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import type { DiaryEntry } from '../types'
 import AppIcon from '../components/AppIcon.vue'
 import TrashIcon from '../components/TrashIcon.vue'
@@ -11,6 +11,14 @@ import { fadeView } from '../lib/fade-view'
 const route=useRoute(),router=useRouter()
 const deletingEntry = shallowRef<DiaryEntry>()
 const entry = computed(() => diaryState.entries.find(e => e.id === route.params.id) || deletingEntry.value)
+const editing = ref(false)
+watch(() => route.params.id, () => { editing.value = false; questionsOpen.value = false; closeMenu() })
+function toggleEditing() {
+ if (!editor.value || editor.value.busy) return
+ if (editing.value && !editor.value.finishEditing()) return
+ editing.value = !editing.value
+ closeMenu()
+}
 const editor = ref<InstanceType<typeof DiaryEditor>>()
 const page = ref<HTMLElement>()
 const switchingQuestions = ref(false)
@@ -18,7 +26,7 @@ const questionsOpen = ref(false)
 const questionAnswers = ref<Record<string, string>>({})
 let editorScroll = 0
 async function startQuestions() {
- if (!editor.value || editor.value.busy || switchingQuestions.value) return
+ if (!editing.value || !editor.value || editor.value.busy || switchingQuestions.value) return
  closeMenu()
  editorScroll = window.scrollY
  questionAnswers.value = editor.value.getAnswers()
@@ -73,8 +81,8 @@ async function removeDiary() {
  }
 }
 </script>
-<template><div v-if="entry" ref="page" class="page detail-page"><DiaryQuestions v-if="questionsOpen" :initial-answers="questionAnswers" :save-answers="saveQuestionAnswers" @complete="finishQuestions" /><div v-show="!questionsOpen" class="detail-editor"><header class="detail-nav"><button @click="router.back()" aria-label="戻る"><svg class="back-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 5-7 7 7 7" /></svg></button><div ref="menuRoot" class="diary-menu" @pointerdown.stop @keydown.esc.stop.prevent="closeMenu(true)"><button ref="menuButton" type="button" class="diary-menu-trigger" aria-label="日記のメニュー" title="日記のメニュー" aria-haspopup="menu" :aria-expanded="menuOpen" aria-controls="diary-actions" @click="toggleMenu" @keydown.down.prevent="toggleMenu"><AppIcon name="more" /></button><Transition name="diary-menu"><div v-if="menuOpen" id="diary-actions" class="diary-menu-panel" role="menu" aria-label="日記の操作"><button ref="deleteButton" type="button" role="menuitem" class="diary-delete" :disabled="!editor || editor.busy" @click="removeDiary"><TrashIcon />日記を削除</button></div></Transition></div></header><DiaryEditor ref="editor" :key="entry.id" :initial="entry" @deleted="router.replace('/records')"/>
-<button type="button" class="question-fab" aria-label="質問モードを始める" title="質問モードを始める" :disabled="!editor || editor.busy || switchingQuestions" @click="startQuestions"><AppIcon name="message-question" /></button></div>
+<template><div v-if="entry" ref="page" class="page detail-page"><DiaryQuestions v-if="questionsOpen" :initial-answers="questionAnswers" :save-answers="saveQuestionAnswers" @complete="finishQuestions" /><div v-show="!questionsOpen" class="detail-editor"><header class="detail-nav"><button @click="router.back()" aria-label="戻る"><svg class="back-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 5-7 7 7 7" /></svg></button><button type="button" class="mode-toggle" :disabled="!editor || editor.busy" :aria-label="editing ? '編集を完了して閲覧モードへ' : '日記を編集'" @click="toggleEditing">{{ editing ? '完了' : '編集' }}</button><div ref="menuRoot" class="diary-menu" @pointerdown.stop @keydown.esc.stop.prevent="closeMenu(true)"><button ref="menuButton" type="button" class="diary-menu-trigger" aria-label="日記のメニュー" title="日記のメニュー" aria-haspopup="menu" :aria-expanded="menuOpen" aria-controls="diary-actions" @click="toggleMenu" @keydown.down.prevent="toggleMenu"><AppIcon name="more" /></button><Transition name="diary-menu"><div v-if="menuOpen" id="diary-actions" class="diary-menu-panel" role="menu" aria-label="日記の操作"><button ref="deleteButton" type="button" role="menuitem" class="diary-delete" :disabled="!editor || editor.busy" @click="removeDiary"><TrashIcon />日記を削除</button></div></Transition></div></header><DiaryEditor ref="editor" :key="entry.id" :initial="entry" :readonly="!editing" @deleted="router.replace('/records')"/>
+<button v-if="editing" type="button" class="question-fab" aria-label="質問モードを始める" title="質問モードを始める" :disabled="!editor || editor.busy || switchingQuestions" @click="startQuestions"><AppIcon name="message-question" /></button></div>
 </div><div v-else class="page"><p>この日記は見つかりませんでした。</p><RouterLink to="/records">記録へ戻る</RouterLink></div></template>
 
 <style scoped>
@@ -89,6 +97,7 @@ async function removeDiary() {
 .detail-nav>button,.detail-nav>.diary-menu{pointer-events:auto}
 .detail-nav>button,.detail-nav .diary-menu-trigger{background:rgba(255,255,255,.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 2px 10px rgba(32,50,44,.08)}
 .detail-nav>button,.diary-menu-trigger{background:rgba(255,255,255,.85);border-radius:50%}
+.detail-nav>.mode-toggle{margin-left:auto;margin-right:10px;width:auto;padding:0 16px;border-radius:22px;font-size:.8rem;font-weight:700}
 .diary-date{margin:0 0 16px;font-size:.8rem;line-height:1.6;color:var(--sub)}
 .back-icon{display:block;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .detail-nav>button{display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:0;line-height:1}
