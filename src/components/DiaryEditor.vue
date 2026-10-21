@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppIcon from "./AppIcon.vue"
 import DiaryEnvironmentPanel from './DiaryEnvironmentPanel.vue'
+import PhotoLightbox from './PhotoLightbox.vue'
 import DiaryCover from './DiaryCover.vue'
 import RichTextEditor from "./RichTextEditor.vue"
 
@@ -154,7 +155,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
   </div>
   <div v-if="!readonly || draft.imageIds.length" class="photo-heading">今日の写真 <small>{{ draft.imageIds.length }} / 10</small></div>
   <div class="photo-row">
-  <div v-if="photos.length" class="detail-gallery"><div v-for="photo in photos" :key="photo.id" class="gallery-image" :class="{selected:draft.thumbnailImageId===photo.id}"><img :src="photo.url" alt="日記の写真" @click="lightbox=photo.url"><button v-if="!readonly" :disabled="busy" aria-label="写真を削除" title="写真を削除" @click="removePhoto(photo.id)"><TrashIcon /></button><button v-if="!readonly" @click="draft.thumbnailImageId=photo.id"><AppIcon v-if="draft.thumbnailImageId===photo.id" name="check" />{{draft.thumbnailImageId===photo.id?'代表写真':'代表にする'}}</button></div></div>
+  <div v-if="photos.length" class="detail-gallery"><div v-for="photo in photos" :key="photo.id" class="gallery-image" :class="{selected:draft.thumbnailImageId===photo.id}"><img :src="photo.url" alt="日記の写真" role="button" tabindex="0" @click="lightbox=photo.id" @keydown.enter="lightbox=photo.id" @keydown.space.prevent="lightbox=photo.id"><button v-if="!readonly" :disabled="busy" aria-label="写真を削除" title="写真を削除" @click="removePhoto(photo.id)"><TrashIcon /></button><button v-if="!readonly" @click="draft.thumbnailImageId=photo.id"><AppIcon v-if="draft.thumbnailImageId===photo.id" name="check" />{{draft.thumbnailImageId===photo.id?'代表写真':'代表にする'}}</button></div></div>
   <div v-if="!readonly && !draft.imageIds.length" class="photo-placeholder" aria-hidden="true"><AppIcon name="camera" /><span>写真はあとからでも</span></div>
   <div v-if="!readonly && draft.imageIds.length<10" class="photo-actions"><label class="outline-button" aria-label="写真を選ぶ" title="写真を選ぶ"><AppIcon name="image" /><input aria-label="写真を選ぶ" type="file" accept="image/*" multiple :disabled="busy" @change="addFiles"></label><label class="outline-button" aria-label="カメラ" title="カメラ"><AppIcon name="camera" /><input aria-label="カメラ" type="file" accept="image/*" capture="environment" :disabled="busy" @change="addFiles"></label></div>
   </div>
@@ -181,7 +182,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
    </label>
    <p v-if="answerSaved && !saveError" class="answer-help" role="status">回答を保存しました。</p>
   </details>
-  <Transition name="photo-lightbox"><div v-if="lightbox" class="lightbox" @click="lightbox=''"><img :src="lightbox" alt="拡大した日記の写真"><button aria-label="画像を閉じる"><AppIcon name="close" /></button></div></Transition>
+  <PhotoLightbox v-if="lightbox" :photos="photos" :initial-id="lightbox" @close="lightbox=''" />
  </div>
 </template>
 <style scoped>
@@ -189,13 +190,6 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .read-tomorrow p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}
 .read-answer{color:var(--text)}
 .editor-status{display:flex;align-items:center;justify-content:space-between;gap:12px}.editor-status p{font-size:.75rem;color:var(--sub)}.diary-editor>label{display:flex;flex-direction:column;gap:8px;margin:20px 0;font-size:.8rem;font-weight:700}.diary-editor>label small{font-weight:400;color:var(--sub)}.diary-editor textarea,.diary-editor>label input{width:100%;padding:15px;border:1px solid var(--line);border-radius:18px;background:white;color:var(--text)}.diary-editor textarea:focus-visible,.diary-editor input:focus-visible{outline:2px solid var(--sage)}.photo-heading{font-size:.8rem;margin-bottom:12px}.photo-actions{margin-top:12px}.diary-editor button:disabled{opacity:.5;cursor:wait}
-.photo-lightbox-enter-active,.photo-lightbox-leave-active{transition:opacity 220ms ease}
-.photo-lightbox-enter-active img,.photo-lightbox-leave-active img{transition:transform 220ms cubic-bezier(.2,.7,.3,1)}
-.photo-lightbox-enter-from,.photo-lightbox-leave-to{opacity:0}
-.photo-lightbox-enter-from img,.photo-lightbox-leave-to img{transform:scale(.94)}
-@media(prefers-reduced-motion:reduce){.photo-lightbox-enter-active,.photo-lightbox-leave-active,.photo-lightbox-enter-active img,.photo-lightbox-leave-active img{transition:none}.photo-lightbox-enter-from img,.photo-lightbox-leave-to img{transform:none}}
-:global(.reduce-motion) .photo-lightbox-enter-from img,:global(.reduce-motion) .photo-lightbox-leave-to img{transform:none}
-.lightbox>button{top:calc(env(safe-area-inset-top,0px) + 16px);right:calc(env(safe-area-inset-right,0px) + 16px);display:grid;place-items:center;padding:0;line-height:1}
 .diary-editor textarea{min-height:260px;line-height:1.8}
 .diary-photos{margin:0 0 20px;padding:0;border:0;background:transparent}
 .photo-stage{position:relative;margin:0 calc(-1 * var(--page-right,22px)) 12px calc(-1 * var(--page-left,22px));min-height:300px}
