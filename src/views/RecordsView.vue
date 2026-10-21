@@ -145,7 +145,6 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
    </section>
   </header>
   <section class="recent-list" aria-label="日記の一覧">
-   <h2 class="records-list-title">これまでの記録</h2>
    <p v-if="!entries.length" class="soft-card">まだ日記がありません。日記を書くと、ここに表示されます。</p>
    <RouterLink v-for="e in entries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': e.thumbnailImageId }"><div v-if="e.thumbnailImageId" class="entry-photo"><EntryThumbnail :id="e.thumbnailImageId"/></div><div class="entry-icon" v-if="!e.thumbnailImageId"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div class="entry-content"><small>{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{e.guess.trim() || '無題の日記'}}</h3><p v-if="e.tags.length"><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b><div v-if="e.environment?.weather || e.environment?.place" class="entry-environment"><span v-if="e.environment?.weather" class="entry-weather"><AppIcon :name="e.environment.weather.code < 3 ? 'sun' : 'cloud'" /><span>{{ weatherLabel(e.environment.weather.code) }} <span class="high" aria-label="最高気温">↑{{ Math.round(e.environment.weather.high) }}°</span> <span class="low" aria-label="最低気温">↓{{ Math.round(e.environment.weather.low) }}°</span></span></span><span v-if="e.environment?.place" class="entry-place"><AppIcon name="pin" /><span>{{ e.environment.place }}</span></span></div></RouterLink>
   </section>
@@ -186,7 +185,6 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 .days .written a{background:var(--forest);color:white;border-radius:50%}
 .days .written i{background:rgba(255,255,255,.8)}
 .days [aria-current="date"] { outline: 1px solid var(--sage); outline-offset: -2px; }
-.records-list-title { margin: 0 0 4px; font-size: 1rem; }
 .entry-row { grid-template-columns: 64px minmax(0, 1fr) 12px; }
 .entry-row > div { min-width: 0; }
 .entry-row p { overflow-wrap: anywhere; }
