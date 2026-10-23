@@ -12,8 +12,8 @@ import { diaryScope, saveEntry, deleteEntry } from '../stores/diary'
 import { compressImage, imageRepository } from '../lib/image-repository'
 import { confirmDelete } from '../lib/delete-confirmation'
 import TrashIcon from './TrashIcon.vue'
-import { baseQuestions, activityQuestions, buildGuess } from '../data/questions'
-import { editAnswer, editAnswers } from '../lib/edit-answer'
+import { buildGuess } from '../data/questions'
+import { editAnswers } from '../lib/edit-answer'
 import { registerUpdatePreparation } from '../lib/update-preparation'
 import { hasDiaryContent } from '../lib/diary-content'
 const props = defineProps<{ initial: DiaryEntry; isNew?: boolean; readonly?: boolean }>()
@@ -26,13 +26,8 @@ const titleInput = computed({
  get: () => props.isNew && draft.guess === suggestedTitle.value ? '' : draft.guess,
  set: (value: string) => { draft.guess = value },
 })
-const questions = computed(() => [...baseQuestions, ...activityQuestions].filter(q => !q.when || q.when(draft.answers)))
-const answerSaved = ref(false)
-function changeAnswer(id: string, event: Event) {
- const value = (event.target as HTMLSelectElement).value
- Object.assign(draft, editAnswer(draft, id, value))
- answerSaved.value = save()
-}
+const photoPicker = ref<HTMLInputElement>()
+const cameraPicker = ref<HTMLInputElement>()
 const photos = ref<{id: string; url: string}[]>([])
 const coverUrl = computed(() => photos.value.find(photo => photo.id === draft.thumbnailImageId)?.url || '')
 const dateLabel = computed(() => {
@@ -146,81 +141,97 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
   <section class="diary-photos" aria-label="今日の写真">
-  <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" />
+  <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" @open="lightbox=draft.thumbnailImageId || ''" />
+
+  </div>
+  <div v-if="!readonly || photos.length > 1 || (photos.length && !coverUrl)" class="photo-collection" :class="{'is-reading':readonly}">
+
+   <div v-if="photos.length" class="photo-grid" :class="{'many-photos':photos.length > 4}">
+    <article v-for="(photo, index) in photos" :key="photo.id" class="photo-card" :class="{'is-cover':draft.thumbnailImageId===photo.id}">
+     <button type="button" class="photo-preview" :aria-label="`写真${index + 1}を拡大する`" @click="lightbox=photo.id"><img :src="photo.url" alt="日記の写真" /><span v-if="draft.thumbnailImageId===photo.id" class="cover-badge"><AppIcon name="check" />表紙</span></button>
+     <div v-if="!readonly" class="photo-card-actions"><button type="button" class="set-cover" :disabled="busy || draft.thumbnailImageId===photo.id" @click="draft.thumbnailImageId=photo.id">{{draft.thumbnailImageId===photo.id?'表紙':'表紙にする'}}</button><button type="button" class="remove-photo" :disabled="busy" :aria-label="`写真${index + 1}を削除`" @click="removePhoto(photo.id)"><TrashIcon /></button></div>
+    </article>
+   </div>
+   <div v-else-if="!readonly" class="photo-empty"><AppIcon name="image" /><p>この日の景色も、一緒に。</p><span>写真を添えて、思い出を残しましょう</span></div>
+   <div v-if="!readonly && draft.imageIds.length<10" class="collection-actions">
+    <button type="button" title="写真を追加" aria-label="写真を追加" class="add-photo" :disabled="busy" @click="photoPicker?.click()"><AppIcon name="image" /></button>
+    <button type="button" title="撮影" aria-label="撮影" class="take-photo" :disabled="busy" @click="cameraPicker?.click()"><AppIcon name="camera" /></button>
+    <input ref="photoPicker" hidden aria-label="写真を選択" type="file" accept="image/*" multiple :disabled="busy" @change="addFiles">
+    <input ref="cameraPicker" hidden aria-label="撮影した写真を選択" type="file" accept="image/*" capture="environment" :disabled="busy" @change="addFiles">
+   </div>
+  </div>
+
+  <p v-if="photoError" class="error" role="alert">{{photoError}}</p>
+  </section>
   <div class="photo-caption">
   <p class="diary-date">{{dateLabel}}</p>
   <div class="title-field"><h1 v-if="readonly" class="read-title">{{ draft.guess || '無題の日記' }}</h1><input v-else v-model="titleInput" aria-label="タイトル" :placeholder="isNew ? suggestedTitle : '日記のタイトル'"></div>
 
   </div>
-  </div>
-  <div v-if="!readonly || draft.imageIds.length" class="photo-heading">今日の写真 <small>{{ draft.imageIds.length }} / 10</small></div>
-  <div class="photo-row">
-  <div v-if="photos.length" class="detail-gallery"><div v-for="photo in photos" :key="photo.id" class="gallery-image" :class="{selected:draft.thumbnailImageId===photo.id}"><img :src="photo.url" alt="日記の写真" role="button" tabindex="0" @click="lightbox=photo.id" @keydown.enter="lightbox=photo.id" @keydown.space.prevent="lightbox=photo.id"><button v-if="!readonly" :disabled="busy" aria-label="写真を削除" title="写真を削除" @click="removePhoto(photo.id)"><TrashIcon /></button><button v-if="!readonly" @click="draft.thumbnailImageId=photo.id"><AppIcon v-if="draft.thumbnailImageId===photo.id" name="check" />{{draft.thumbnailImageId===photo.id?'代表写真':'代表にする'}}</button></div></div>
-  <div v-if="!readonly && !draft.imageIds.length" class="photo-placeholder" aria-hidden="true"><AppIcon name="camera" /><span>写真はあとからでも</span></div>
-  <div v-if="!readonly && draft.imageIds.length<10" class="photo-actions"><label class="outline-button" aria-label="写真を選ぶ" title="写真を選ぶ"><AppIcon name="image" /><input aria-label="写真を選ぶ" type="file" accept="image/*" multiple :disabled="busy" @change="addFiles"></label><label class="outline-button" aria-label="カメラ" title="カメラ"><AppIcon name="camera" /><input aria-label="カメラ" type="file" accept="image/*" capture="environment" :disabled="busy" @change="addFiles"></label></div>
-  </div>
-
-  <p v-if="photoError" class="error" role="alert">{{photoError}}</p>
-  </section>
   <div v-if="draft.tags.length" class="tag-list"><span v-for="tag in draft.tags" :key="tag"># {{tag}}</span></div>
-  <DiaryEnvironmentPanel :readonly="readonly" :model-value="draft.environment" :date="draft.date" @update:model-value="setEnvironment" />
   <div class="body-heading">今日のこと</div><RichTextEditor v-model="draft.body" :readonly="readonly"/>
   <section v-if="readonly && draft.tomorrow" class="read-tomorrow"><h2 class="body-heading">明日やりたいこと</h2><p>{{ draft.tomorrow }}</p></section>
   <label v-if="!readonly"><span class="field-heading">明日やりたいこと <small>任意</small></span><input v-model="draft.tomorrow" placeholder="例：少し早く休む"></label>
-  <details v-if="!isNew" class="soft-card diary-answers">
-   <summary>質問への回答</summary>
-   <p v-if="!readonly" class="answer-help">選び直すと自動保存されます。</p>
-   <label v-for="question in questions" :key="question.id" class="answer-field">
-    <span>{{ question.prompt }}</span>
-    <span v-if="readonly" class="read-answer">{{ question.options.find(option => option.value === draft.answers[question.id])?.label || (draft.answers[question.id] === 'skip' ? 'スキップ' : draft.answers[question.id] ? '以前の回答' : '未回答') }}</span>
-    <select v-else :value="draft.answers[question.id] ?? ''" @change="changeAnswer(question.id, $event)">
-     <option value="">未回答</option>
-     <option v-if="draft.answers[question.id] && draft.answers[question.id] !== 'skip' && !question.options.some(o => o.value === draft.answers[question.id])" :value="draft.answers[question.id]" disabled>以前の回答（選び直せます）</option>
-     <option v-for="option in question.options" :key="option.value" :value="option.value">{{ option.icon }} {{ option.label }}</option>
-     <option value="skip">スキップ</option>
-    </select>
-   </label>
-   <p v-if="answerSaved && !saveError" class="answer-help" role="status">回答を保存しました。</p>
-  </details>
+  <DiaryEnvironmentPanel :readonly="readonly" :model-value="draft.environment" :date="draft.date" @update:model-value="setEnvironment" />
   <PhotoLightbox v-if="lightbox" :photos="photos" :initial-id="lightbox" @close="lightbox=''" />
  </div>
 </template>
 <style scoped>
-.photo-caption .read-title{margin:0;font-size:1.1rem;line-height:1.6;overflow-wrap:anywhere}
+.photo-caption .read-title{margin:0;font-size:1.5rem;letter-spacing:.02em;line-height:1.65;overflow-wrap:anywhere}
 .read-tomorrow p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}
-.read-answer{color:var(--text)}
 .editor-status{display:flex;align-items:center;justify-content:space-between;gap:12px}.editor-status p{font-size:.75rem;color:var(--sub)}.diary-editor>label{display:flex;flex-direction:column;gap:8px;margin:20px 0;font-size:.8rem;font-weight:700}.diary-editor>label small{font-weight:400;color:var(--sub)}.diary-editor textarea,.diary-editor>label input{width:100%;padding:15px;border:1px solid var(--line);border-radius:18px;background:white;color:var(--text)}.diary-editor textarea:focus-visible,.diary-editor input:focus-visible{outline:2px solid var(--sage)}.photo-heading{font-size:.8rem;margin-bottom:12px}.photo-actions{margin-top:12px}.diary-editor button:disabled{opacity:.5;cursor:wait}
 .diary-editor textarea{min-height:260px;line-height:1.8}
 .diary-photos{margin:0 0 20px;padding:0;border:0;background:transparent}
-.photo-stage{position:relative;margin:0 calc(-1 * var(--page-right,22px)) 12px calc(-1 * var(--page-left,22px));min-height:300px}
-.photo-stage.empty{min-height:0;padding:88px var(--page-right,22px) 24px var(--page-left,22px);margin-bottom:20px;background:var(--paper)}
-.photo-stage.empty .photo-caption{position:static;padding:0;border:0;border-radius:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
-.photo-placeholder{flex:1;min-width:0;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:1px dashed var(--line);border-radius:12px;background:rgba(255,255,255,.45);color:var(--sub)}
-.photo-placeholder :deep(.app-icon){width:26px;height:26px;opacity:.6}
-.photo-placeholder span{font-size:.64rem;text-align:center}
-.diary-photos .photo-heading{font-weight:700}
-.diary-photos .photo-heading small{font-weight:400;color:var(--sub)}
-.photo-row{display:flex;align-items:center;gap:10px}
-.diary-photos .detail-gallery{flex:1;min-width:0;margin-bottom:0;scroll-snap-type:x mandatory}
-.photo-row .photo-actions{display:flex;flex-direction:column;flex-shrink:0;gap:8px;margin:0}
-.photo-row .outline-button{width:44px;height:44px;padding:10px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;cursor:pointer}
-.diary-photos .gallery-image{flex:0 0 112px;height:96px;border:0;border-radius:12px;scroll-snap-align:start}
-.diary-photos .gallery-image.selected{outline:3px solid var(--sage);outline-offset:-3px}
-.photo-caption{position:absolute;bottom:16px;left:var(--page-left,22px);right:var(--page-right,22px);padding:14px 16px;border:1px solid rgba(255,255,255,.65);border-radius:18px;background:rgba(255,255,255,.78);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--text)}
+.photo-stage{margin:0 calc(-1 * var(--page-right,22px)) 24px calc(-1 * var(--page-left,22px));padding-top:0}
+.photo-stage.empty{padding-top:80px;margin-bottom:24px}
+.photo-caption{margin-bottom:24px;color:var(--text)}
 .diary-date{margin:0 0 8px;font-size:.8rem;line-height:1.6;color:var(--sub)}
 .title-field{display:flex;flex-direction:column;gap:4px;margin:0;font-size:.72rem;line-height:1.5;color:var(--sub)}
 .title-field input{padding:4px 0 10px;line-height:1.6;border:0;width:100%;color:var(--text);border-bottom:1px solid var(--sage);border-radius:0;background:transparent;font-size:1.1rem;font-weight:700}
 .title-field input::placeholder{color:var(--sub);opacity:.55;font-weight:400}
 .title-field input:focus-visible{outline:none;border-bottom:2px solid var(--sage);padding-bottom:9px}
 .body-heading{margin-top:20px;font-size:.8rem;font-weight:700}
-.diary-editor>label,.body-heading,.photo-heading,.answer-field>span{color:var(--sub)}
+.diary-editor>label,.body-heading,.photo-heading{color:var(--sub)}
 .field-heading{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
-.diary-answers{margin-top:20px;padding:10px 14px;background:white;border-radius:16px}
-.diary-answers summary{cursor:pointer;font-size:.9rem;font-weight:700;line-height:1.6;padding:10px 0}
-.answer-help{margin:2px 0 8px;font-size:.72rem;color:var(--sub);line-height:1.5}
-.answer-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:10px;padding:5px 0;font-size:.75rem;line-height:1.5}
-.answer-field>span{overflow-wrap:anywhere}
-.answer-field+.answer-field{border-top:1px solid var(--line)}
-.answer-field select{width:100%;min-width:0;min-height:44px;padding:8px 4px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--text);font:inherit;font-size:max(16px,1rem)}
-.answer-field select:focus-visible,.diary-answers summary:focus-visible{outline:2px solid var(--sage);outline-offset:3px}
+</style>
+
+<style scoped>
+.photo-collection{padding:14px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.55)}
+.collection-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.collection-eyebrow{font-size:.58rem;letter-spacing:.18em;color:var(--sub)}
+.collection-heading h2{margin:5px 0 0;font-size:.9rem;font-weight:600}
+.collection-heading small{margin-left:6px;font-size:.7rem;font-weight:400;color:var(--sub)}
+.photo-limit{font-size:.65rem;color:var(--sub)}
+.collection-help{font-size:.7rem;line-height:1.8;color:var(--sub);margin:12px 0 16px}
+.photo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:0}
+.photo-grid.many-photos{grid-template-columns:repeat(3,minmax(0,1fr))}
+.photo-card{min-width:0}
+.photo-preview{position:relative;display:block;width:100%;aspect-ratio:4/3;padding:0;border:0;border-radius:14px;overflow:hidden;background:var(--mist);cursor:zoom-in}
+.photo-preview img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .2s ease}
+.photo-preview:hover img{transform:scale(1.04)}
+.cover-badge{position:absolute;bottom:8px;left:8px;display:flex;align-items:center;gap:4px;border-radius:20px;padding:4px 8px;background:rgba(255,255,255,.94);color:var(--forest);font-size:.62rem}
+.cover-badge .app-icon{width:12px;height:12px}
+.photo-card-actions{display:flex;align-items:center;justify-content:space-between;gap:4px;padding-top:4px}
+.photo-card-actions button{min-height:32px;border:0;background:transparent;cursor:pointer}
+.set-cover{padding:0 3px;color:var(--forest);font-size:.68rem;text-align:left}
+.photo-card-actions .set-cover:disabled{opacity:1;color:var(--sub);cursor:default}
+.remove-photo{display:grid;place-items:center;min-width:32px;color:var(--sub);padding:6px}
+.remove-photo:hover{color:#a3463d;background:#f9edeb;border-radius:12px}
+.collection-actions{position:fixed;z-index:25;left:max(20px,calc((100vw - var(--app-width,430px))/2 + 20px));bottom:calc(102px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;margin:0}
+.collection-actions button{appearance:none;position:relative;display:grid;place-items:center;flex:0 0 48px;width:48px;min-width:48px;max-width:48px;height:48px;min-height:48px;max-height:48px;margin:0;padding:0;border:0;border-radius:50%;line-height:1;cursor:pointer;box-shadow:0 4px 16px rgba(36,74,61,.18)}
+.collection-actions input{display:none}
+.collection-actions button:focus-visible,.photo-preview:focus-visible,.photo-card-actions button:focus-visible{outline:2px solid var(--forest);outline-offset:3px}
+.collection-actions .app-icon{width:22px;height:22px}
+.add-photo{background:var(--forest);color:white}
+.collection-actions .take-photo{border:1px solid var(--line);background:var(--paper);color:var(--forest)}
+.collection-actions .disabled{opacity:.5;cursor:wait}
+.photo-empty{text-align:center;padding:16px 0 8px;color:var(--sub)}
+.photo-empty>.app-icon{width:30px;height:30px;color:var(--sage)}
+.photo-empty p{margin:10px 0 5px;font-size:.85rem;color:var(--text)}
+.photo-empty span{font-size:.68rem}
+.is-reading{padding:0;border:0;background:transparent}
+.is-reading .photo-grid{display:grid}
+
+.is-reading .cover-badge{display:none}
+@media(prefers-reduced-motion:reduce){.photo-preview img{transition:none}}
 </style>

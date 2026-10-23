@@ -11,6 +11,18 @@ function move(direction: number) {
  const next = props.photos[index.value + direction]
  if (next) selectedId.value = next.id
 }
+let touchStart: { x: number; y: number } | undefined
+function startSwipe(event: TouchEvent) {
+ const touch = event.touches[0]
+ touchStart = touch ? { x: touch.clientX, y: touch.clientY } : undefined
+}
+function finishSwipe(event: TouchEvent) {
+ const touch = event.changedTouches[0], start = touchStart
+ touchStart = undefined
+ if (!touch || !start) return
+ const dx = touch.clientX - start.x, dy = touch.clientY - start.y
+ if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) move(dx < 0 ? 1 : -1)
+}
 function close() { dialog.value?.close() }
 function keydown(event: KeyboardEvent) {
  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -38,7 +50,7 @@ onBeforeUnmount(() => {
 <template>
  <Teleport to="body">
   <dialog ref="dialog" class="photo-viewer" aria-label="日記の写真" @close="emit('close')" @keydown="keydown" @click.self="close">
-   <div v-if="photo" class="photo-viewer-stage" @dragstart.prevent>
+   <div v-if="photo" class="photo-viewer-stage" @touchstart.passive="startSwipe" @touchend.passive="finishSwipe" @touchcancel="touchStart=undefined" @dragstart.prevent>
     <img :src="photo.url" :alt="`日記の写真 ${index + 1} / ${photos.length}`" draggable="false">
    </div>
    <button type="button" class="viewer-close" aria-label="画像を閉じる" autofocus @click="close"><AppIcon name="close" /></button>
