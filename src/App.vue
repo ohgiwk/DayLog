@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppIcon from "./components/AppIcon.vue"
 
-import { computed, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { authRedirect, isAuthPath } from './lib/auth-navigation'
 import { account } from './stores/account'
 import { startMemoSync, resetMemoSync, scheduleMemoSync, memoSyncState } from './lib/memo-sync'
@@ -24,6 +24,40 @@ watch(() => [account.ready, account.user?.id, account.recovery], () => {
  const target = authRedirect(route, { ready: account.ready, signedIn: !!account.user, recovery: account.recovery })
  if (target) void router.replace(target)
 }, { immediate: true })
+// Keep the navigation at its pre-keyboard position while writing a diary.
+const tabKeyboardOffset = ref(0)
+let restingViewportBottom = 0
+let editingInput = false
+function viewportBottom() {
+ const viewport = window.visualViewport
+ return viewport ? viewport.height + viewport.offsetTop : window.innerHeight
+}
+function updateTabPosition() {
+ const active = document.activeElement
+ const diaryInput = active instanceof HTMLElement && !!active.closest('.diary-editor') &&
+  (active.matches('input:not([type="file"]), textarea') || active.isContentEditable)
+ if (diaryInput && !editingInput) restingViewportBottom = Math.max(window.innerHeight, viewportBottom())
+ editingInput = diaryInput
+ const displacement = restingViewportBottom - viewportBottom()
+ tabKeyboardOffset.value = editingInput && displacement > 100 ? displacement : 0
+ if (!editingInput) restingViewportBottom = viewportBottom()
+}
+onMounted(() => {
+ restingViewportBottom = viewportBottom()
+ document.addEventListener('focusin', updateTabPosition)
+ document.addEventListener('focusout', updateTabPosition)
+ window.addEventListener('resize', updateTabPosition)
+ window.visualViewport?.addEventListener('resize', updateTabPosition)
+ window.visualViewport?.addEventListener('scroll', updateTabPosition)
+})
+onBeforeUnmount(() => {
+ document.removeEventListener('focusin', updateTabPosition)
+ document.removeEventListener('focusout', updateTabPosition)
+ window.removeEventListener('resize', updateTabPosition)
+ window.visualViewport?.removeEventListener('resize', updateTabPosition)
+ window.visualViewport?.removeEventListener('scroll', updateTabPosition)
+})
+watch(() => route.path, () => { editingInput = false; tabKeyboardOffset.value = 0 })
 function animateTab(event: MouseEvent) {
  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return
  if (settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -52,7 +86,7 @@ function animateTab(event: MouseEvent) {
    </RouterView>
   </main>
   <p v-else class="page" role="alert">{{ account.error || 'ログイン状態を確認しています…' }}</p>
-  <nav v-if="account.ready && account.user && !authScreen && route.path!='/journal'" class="tabbar" aria-label="メインメニュー" @click="animateTab">
+  <nav v-if="account.ready && account.user && !authScreen && route.path!='/journal'" class="tabbar" :style="tabKeyboardOffset ? {transform:`translate(-50%, ${tabKeyboardOffset}px)`} : undefined" aria-label="メインメニュー" @click="animateTab">
    <RouterLink to="/" aria-label="ホーム"><span><AppIcon name="home" /></span><small>ホーム</small></RouterLink>
    <RouterLink to="/records" aria-label="記録"><span><AppIcon name="records" /></span><small>記録</small></RouterLink>
    <RouterLink :to="writeTarget" class="write-tab" aria-label="日記を書く"><span><AppIcon name="notebook-pen" /></span><small>日記を書く</small></RouterLink>
