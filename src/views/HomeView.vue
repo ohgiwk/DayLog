@@ -2,10 +2,9 @@
 import AppIcon from "../components/AppIcon.vue"
 import EntryThumbnail from '../components/EntryThumbnail.vue'
 
-import { computed } from 'vue';import { entries, todaysEntry } from '../stores/diary'
+import { computed } from 'vue';import { todaysEntry } from '../stores/diary'
 const todayImage = computed(() => todaysEntry.value?.thumbnailImageId || todaysEntry.value?.imageIds[0])
 const now=new Date();const hour=now.getHours();const greeting=hour<11?'おはようございます':hour<18?'こんにちは':'こんばんは';const date=new Intl.DateTimeFormat('ja-JP',{month:'long',day:'numeric',weekday:'short'}).format(now)
-const rate=computed(()=>Math.round(entries.value.filter(e=>(Date.now()-new Date(e.date).getTime())<28*86400000).length/28*100))
 </script>
 <template><div class="page home-page">
  <header class="home-hero"><RouterLink to="/settings" class="home-settings-link"><AppIcon name="settings" /> 設定</RouterLink><p class="eyebrow">{{date}}</p><h1>{{greeting}}</h1><p>今日の心に、静かな居場所を。</p></header>
@@ -21,7 +20,6 @@ const rate=computed(()=>Math.round(entries.value.filter(e=>(Date.now()-new Date(
   </div>
   <RouterLink class="primary-button" :to="todaysEntry?`/entry/${todaysEntry.id}`:'/journal'">{{todaysEntry?'日記を見る':'今日を残す'}} <span><AppIcon name="arrow-right" /></span></RouterLink>
  </section>
- <section><div class="section-heading"><div><p class="eyebrow">YOUR RHYTHM</p><h2>あなたのペース</h2></div><strong>{{rate}}<small>%</small></strong></div><div class="soft-card rhythm"><div class="ring" :style="{'--p':rate+'%'}"><span>{{rate}}%</span></div><div><h3>直近4週間の日記作成率</h3><p>書けない日があっても大丈夫。戻ってきた日が、少しずつ積み重なっています。</p></div></div></section>
 </div></template>
 
 <style scoped>
