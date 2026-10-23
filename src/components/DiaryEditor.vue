@@ -140,7 +140,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
  <div class="diary-editor">
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
-  <section class="diary-photos" aria-label="今日の写真">
+  <section class="diary-photos" :class="{'photos-readonly':readonly}" aria-label="今日の写真">
   <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" @open="lightbox=draft.thumbnailImageId || ''" />
 
   </div>
@@ -229,7 +229,11 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .photo-empty>.app-icon{width:30px;height:30px;color:var(--sage)}
 .photo-empty p{margin:10px 0 5px;font-size:.85rem;color:var(--text)}
 .photo-empty span{font-size:.68rem}
-.is-reading{padding:0;border:0;background:transparent}
+.photos-readonly:has(.is-reading){margin-bottom:12px}
+.photos-readonly:has(.is-reading) .photo-stage:not(.empty){margin-bottom:8px}
+.is-reading{margin-left:calc(8px - var(--page-left,22px));margin-right:calc(8px - var(--page-right,22px));padding:0;border:0;background:transparent}
+.is-reading .photo-grid{gap:4px}
+.is-reading .photo-preview{border-radius:6px}
 .is-reading .photo-grid{display:grid}
 
 .is-reading .cover-badge{display:none}
