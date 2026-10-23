@@ -2,11 +2,16 @@
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import EntryThumbnail from '../components/EntryThumbnail.vue'
+import type { DiaryEntry } from '../types'
 import { weatherLabel } from '../lib/diary-weather'
 import { entries, settings } from '../stores/diary'
 import { swipeDirection } from '../lib/calendar-swipe'
 import { calendarDays, dateKey, moveCalendar } from '../lib/records-calendar'
 
+function entryPhotos(entry: DiaryEntry) {
+ const cover = entry.thumbnailImageId || entry.imageIds[0]
+ return cover ? [cover, ...entry.imageIds.filter(id => id !== cover)] : []
+}
 const mode = 'month' as const
 const calendarDialog = ref<HTMLDialogElement>()
 const calendarOpen = ref(false)
@@ -183,7 +188,7 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
   </Teleport>
   <section class="recent-list" aria-label="日記の一覧">
    <p v-if="!entries.length" class="soft-card">まだ日記がありません。日記を書くと、ここに表示されます。</p>
-   <RouterLink v-for="e in entries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': e.thumbnailImageId }"><div v-if="e.thumbnailImageId" class="entry-photo"><EntryThumbnail :id="e.thumbnailImageId"/></div><div class="entry-icon" v-if="!e.thumbnailImageId"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div class="entry-content"><small>{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{e.guess.trim() || '無題の日記'}}</h3><p v-if="e.tags.length"><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b><div v-if="e.environment?.weather || e.environment?.place" class="entry-environment"><span v-if="e.environment?.weather" class="entry-weather"><AppIcon :name="e.environment.weather.code < 3 ? 'sun' : 'cloud'" /><span>{{ weatherLabel(e.environment.weather.code) }} <span class="high" aria-label="最高気温">↑{{ Math.round(e.environment.weather.high) }}°</span> <span class="low" aria-label="最低気温">↓{{ Math.round(e.environment.weather.low) }}°</span></span></span><span v-if="e.environment?.place" class="entry-place"><AppIcon name="pin" /><span>{{ e.environment.place }}</span></span></div></RouterLink>
+   <RouterLink v-for="e in entries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': entryPhotos(e).length }"><div v-if="entryPhotos(e).length" class="entry-photo" :class="{'photo-collage':entryPhotos(e).length > 1}"><div class="entry-cover-photo"><EntryThumbnail :id="entryPhotos(e)[0]" alt="日記の代表写真" /></div><div v-if="entryPhotos(e).length > 1" class="entry-other-photos" :class="{'many-photos':entryPhotos(e).length > 5}"><div v-for="id in entryPhotos(e).slice(1)" :key="id" class="entry-small-photo"><EntryThumbnail :id="id" /></div></div></div><div class="entry-icon" v-if="!entryPhotos(e).length"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div class="entry-content"><small>{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{e.guess.trim() || '無題の日記'}}</h3><p v-if="e.tags.length"><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b><div v-if="e.environment?.weather || e.environment?.place" class="entry-environment"><span v-if="e.environment?.weather" class="entry-weather"><AppIcon :name="e.environment.weather.code < 3 ? 'sun' : 'cloud'" /><span>{{ weatherLabel(e.environment.weather.code) }} <span class="high" aria-label="最高気温">↑{{ Math.round(e.environment.weather.high) }}°</span> <span class="low" aria-label="最低気温">↓{{ Math.round(e.environment.weather.low) }}°</span></span></span><span v-if="e.environment?.place" class="entry-place"><AppIcon name="pin" /><span>{{ e.environment.place }}</span></span></div></RouterLink>
   </section>
  </div>
 </template>
@@ -252,6 +257,12 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 .entry-row p { overflow-wrap: anywhere; }
 .entry-row.has-photo { grid-template-columns: minmax(0, 1fr) 12px; row-gap: 8px; padding: 0; overflow: hidden; }
 .entry-photo { grid-column: 1 / -1; width: 100%; aspect-ratio: 16 / 9; background: var(--mist); overflow: hidden; }
+.entry-cover-photo{width:100%;height:100%;min-width:0;min-height:0;overflow:hidden}
+.entry-photo.photo-collage{display:grid;grid-template-columns:3fr 2fr;gap:3px}
+.entry-other-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:3px;min-width:0;min-height:0}
+.entry-other-photos:has(>.entry-small-photo:only-child){grid-template-columns:1fr}
+.entry-other-photos.many-photos{grid-template-columns:repeat(3,minmax(0,1fr))}
+.entry-small-photo{min-width:0;min-height:0;overflow:hidden;background:var(--mist)}
 .entry-photo :deep(.entry-thumb) { display: block; width: 100%; height: 100%; border-radius: 0; object-fit: cover; }
 .entry-photo :deep(span.entry-thumb) { display: grid; place-items: center; font-size: .8rem; color: var(--sub); }
 .entry-row.has-photo .entry-content { margin-left: 14px; margin-bottom: 8px; }
