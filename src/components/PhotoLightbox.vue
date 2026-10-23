@@ -1,13 +1,30 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
-const props = defineProps<{ photos: { id: string; url: string }[]; initialId: string }>()
+const props = defineProps<{ photos: { id: string; url: string }[]; initialId: string; origin?: {left:number;top:number;width:number;height:number} }>()
 const emit = defineEmits<{ close: [] }>()
 const dialog = ref<HTMLDialogElement>()
 const viewport = ref<HTMLElement>()
 const selectedId = ref(props.initialId)
 const index = computed(() => Math.max(0, props.photos.findIndex(photo => photo.id === selectedId.value)))
 const dragging = ref(false)
+const closing = ref(false)
+let closeTimer: ReturnType<typeof setTimeout> | undefined
+let imageAnimation: Animation | undefined
+let opened = false
+function animatePhoto(reverse = false) {
+ if (!props.origin || document.querySelector('.reduce-motion') || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+ const image = slides()[index.value]?.querySelector('img')
+ if (!image || !image.complete || !image.naturalWidth) return
+ if (!reverse && opened) return
+ opened = true
+ imageAnimation?.cancel()
+ const bounds = image.getBoundingClientRect(), origin = props.origin
+ if (!bounds.width || !bounds.height) return
+ const from = `translate(${origin.left + origin.width / 2 - bounds.left - bounds.width / 2}px,${origin.top + origin.height / 2 - bounds.top - bounds.height / 2}px) scale(${origin.width / bounds.width},${origin.height / bounds.height})`
+ imageAnimation = image.animate(reverse ? [{transform:'none'}, {transform:from}] : [{transform:from}, {transform:'none'}], {duration:reverse ? 180 : 380,easing:reverse ? 'cubic-bezier(.4,0,1,1)' : 'cubic-bezier(.16,1,.3,1)',fill:'both'})
+ if (!reverse) { const animation = imageAnimation; animation.onfinish = () => animation.cancel() }
+}
 let observer: ResizeObserver | undefined
 let previousOverflow: string | undefined
 let mouseStart: { id: number; x: number; scroll: number } | undefined
@@ -47,7 +64,17 @@ function pointerEnd(event: PointerEvent) {
  if (viewport.value?.hasPointerCapture(event.pointerId)) viewport.value.releasePointerCapture(event.pointerId)
  goTo(index.value)
 }
-function close() { dialog.value?.close() }
+function close() {
+ if (closing.value) return
+ const reduced = document.querySelector('.reduce-motion') || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+ if (reduced) { dialog.value?.close(); return }
+ closing.value = true
+ animatePhoto(true)
+ closeTimer = setTimeout(() => dialog.value?.close(), 200)
+}
+function finishClose(event: AnimationEvent) {
+ if (event.target === dialog.value && closing.value) dialog.value?.close()
+}
 function keydown(event: KeyboardEvent) {
  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
   event.preventDefault()
@@ -65,10 +92,13 @@ onMounted(() => {
  previousOverflow = document.body.style.overflow
  document.body.style.overflow = 'hidden'
  goTo(index.value, false)
+ animatePhoto()
  observer = new ResizeObserver(() => goTo(index.value, false))
  if (viewport.value) observer.observe(viewport.value)
 })
 onBeforeUnmount(() => {
+ clearTimeout(closeTimer)
+ imageAnimation?.cancel()
  observer?.disconnect()
  dialog.value?.close()
  if (previousOverflow !== undefined) document.body.style.overflow = previousOverflow
@@ -76,10 +106,10 @@ onBeforeUnmount(() => {
 </script>
 <template>
  <Teleport to="body">
-  <dialog ref="dialog" class="photo-viewer" aria-label="日記の写真" @close="emit('close')" @keydown="keydown" @click.self="close">
+  <dialog ref="dialog" class="photo-viewer" :class="{closing,'has-origin':origin}" aria-label="日記の写真" @cancel.prevent="close" @animationend="finishClose" @close="emit('close')" @keydown="keydown" @click.self="close">
    <div ref="viewport" class="photo-viewer-stage" :class="{dragging}" aria-label="左右にスワイプして写真を切り替え" @scroll.passive="onScroll" @pointerdown="pointerDown" @pointermove="pointerMove" @pointerup="pointerEnd" @pointercancel="pointerEnd" @lostpointercapture="pointerEnd" @dragstart.prevent>
-    <div v-for="(photo, position) in photos" :key="photo.id" class="viewer-slide" :aria-hidden="position !== index">
-     <img :src="photo.url" :alt="`日記の写真 ${position + 1} / ${photos.length}`" draggable="false">
+    <div v-for="(photo, position) in photos" :key="photo.id" class="viewer-slide" :class="{'is-active':position === index,'is-previous':position < index}" :aria-hidden="position !== index">
+     <img :src="photo.url" :alt="`日記の写真 ${position + 1} / ${photos.length}`" draggable="false" @load="position === index && !closing && animatePhoto()">
     </div>
    </div>
    <button type="button" class="viewer-close" aria-label="画像を閉じる" autofocus @click="close"><AppIcon name="close" /></button>
@@ -93,13 +123,20 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .photo-viewer{position:fixed;inset:0;width:100%;max-width:none;height:100%;max-height:none;margin:0;padding:0;border:0;background:rgba(14,24,20,.96);color:white;overflow:hidden}
-.photo-viewer[open]{display:grid;place-items:center;animation:viewer-appear 220ms ease}
+.photo-viewer[open]{display:grid;place-items:center;animation:viewer-appear 360ms ease}
+.photo-viewer[open].closing{animation:viewer-disappear 180ms ease-in forwards;pointer-events:none}
+.photo-viewer[open] .photo-viewer-stage{animation:photos-appear 380ms cubic-bezier(.16,1,.3,1)}
+.photo-viewer[open].closing .photo-viewer-stage{animation:photos-disappear 180ms cubic-bezier(.4,0,1,1) forwards}
+.photo-viewer[open].has-origin .photo-viewer-stage,.photo-viewer[open].has-origin.closing .photo-viewer-stage{animation:none}
 .photo-viewer::backdrop{background:transparent}
 .photo-viewer-stage{position:relative;display:flex;align-items:center;gap:12px;width:100%;height:calc(100dvh - 160px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));padding:0 7%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;user-select:none;cursor:grab}
 .photo-viewer-stage::-webkit-scrollbar{display:none}
 .photo-viewer-stage.dragging{scroll-snap-type:none;cursor:grabbing}
 .viewer-slide{flex:0 0 100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;scroll-snap-stop:always}
 .photo-viewer img{display:block;width:100%;max-height:100%;object-fit:contain;border-radius:6px;pointer-events:none}
+.viewer-slide img{transform-origin:left center;transform:scale(.9);transition:transform 220ms cubic-bezier(.2,.7,.3,1)}
+.viewer-slide.is-previous img{transform-origin:right center}
+.viewer-slide.is-active img{transform-origin:center;transform:scale(1)}
 .photo-viewer button{position:absolute;display:grid;place-items:center;width:44px;height:44px;padding:0;border:1px solid rgba(255,255,255,.2);border-radius:50%;background:rgba(255,255,255,.12);color:white;cursor:pointer;backdrop-filter:blur(12px)}
 .photo-viewer button:focus-visible{outline:3px solid var(--sage);outline-offset:4px}
 .photo-viewer button:disabled{opacity:.25;cursor:default}
@@ -108,6 +145,10 @@ onBeforeUnmount(() => {
 .viewer-next{right:calc(24% - 22px);bottom:calc(22px + env(safe-area-inset-bottom,0px))}
 .viewer-count{position:absolute;bottom:calc(34px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);margin:0;font-size:.85rem;letter-spacing:.12em;pointer-events:none}
 @keyframes viewer-appear{from{opacity:0}to{opacity:1}}
-:global(.reduce-motion) .photo-viewer[open]{animation:none}
-@media(prefers-reduced-motion:reduce){.photo-viewer[open]{animation:none}}
+@keyframes viewer-disappear{from{opacity:1}to{opacity:0}}
+@keyframes photos-appear{from{opacity:0;transform:scale(.72)}to{opacity:1;transform:scale(1)}}
+@keyframes photos-disappear{from{transform:scale(1)}to{transform:scale(.72)}}
+:global(.reduce-motion) .viewer-slide img{transition:none}
+:global(.reduce-motion) .photo-viewer[open],:global(.reduce-motion) .photo-viewer[open] .photo-viewer-stage{animation:none}
+@media(prefers-reduced-motion:reduce){.viewer-slide img{transition:none}.photo-viewer[open],.photo-viewer[open] .photo-viewer-stage{animation:none}}
 </style>

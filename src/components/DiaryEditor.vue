@@ -26,6 +26,12 @@ const titleInput = computed({
  get: () => props.isNew && draft.guess === suggestedTitle.value ? '' : draft.guess,
  set: (value: string) => { draft.guess = value },
 })
+const previewOrigin = ref<{left:number;top:number;width:number;height:number}>()
+function openPhoto(id: string, event: MouseEvent) {
+ const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
+ previewOrigin.value = { left:bounds.left, top:bounds.top, width:bounds.width, height:bounds.height }
+ lightbox.value = id
+}
 const photoPicker = ref<HTMLInputElement>()
 const cameraPicker = ref<HTMLInputElement>()
 const photos = ref<{id: string; url: string}[]>([])
@@ -141,14 +147,14 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
   <section class="diary-photos" :class="{'photos-readonly':readonly}" aria-label="今日の写真">
-  <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" @open="lightbox=draft.thumbnailImageId || ''" />
+  <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" @open="openPhoto(draft.thumbnailImageId || '', $event)" />
 
   </div>
   <div v-if="!readonly || photos.length > 1 || (photos.length && !coverUrl)" class="photo-collection" :class="{'is-reading':readonly}">
 
    <div v-if="photos.length" class="photo-grid" :class="{'many-photos':photos.length > 4}">
     <article v-for="(photo, index) in photos" :key="photo.id" class="photo-card" :class="{'is-cover':draft.thumbnailImageId===photo.id}">
-     <button type="button" class="photo-preview" :aria-label="`写真${index + 1}を拡大する`" @click="lightbox=photo.id"><img :src="photo.url" alt="日記の写真" /><span v-if="draft.thumbnailImageId===photo.id" class="cover-badge"><AppIcon name="check" />表紙</span></button>
+     <button type="button" class="photo-preview" :aria-label="`写真${index + 1}を拡大する`" @click="openPhoto(photo.id, $event)"><img :src="photo.url" alt="日記の写真" /><span v-if="draft.thumbnailImageId===photo.id" class="cover-badge"><AppIcon name="check" />表紙</span></button>
      <div v-if="!readonly" class="photo-card-actions"><button type="button" class="set-cover" :disabled="busy || draft.thumbnailImageId===photo.id" @click="draft.thumbnailImageId=photo.id">{{draft.thumbnailImageId===photo.id?'表紙':'表紙にする'}}</button><button type="button" class="remove-photo" :disabled="busy" :aria-label="`写真${index + 1}を削除`" @click="removePhoto(photo.id)"><TrashIcon /></button></div>
     </article>
    </div>
@@ -173,7 +179,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
   <section v-if="readonly && draft.tomorrow" class="read-tomorrow"><h2 class="body-heading">明日やりたいこと</h2><p>{{ draft.tomorrow }}</p></section>
   <label v-if="!readonly"><span class="field-heading">明日やりたいこと <small>任意</small></span><input v-model="draft.tomorrow" placeholder="例：少し早く休む"></label>
   <DiaryEnvironmentPanel :readonly="readonly" :model-value="draft.environment" :date="draft.date" @update:model-value="setEnvironment" />
-  <PhotoLightbox v-if="lightbox" :photos="photos" :initial-id="lightbox" @close="lightbox=''" />
+  <PhotoLightbox v-if="lightbox" :photos="photos" :initial-id="lightbox" :origin="previewOrigin" @close="lightbox=''" />
  </div>
 </template>
 <style scoped>
@@ -232,7 +238,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .photos-readonly:has(.is-reading){margin-bottom:12px}
 .photos-readonly:has(.is-reading) .photo-stage:not(.empty){margin-bottom:8px}
 .is-reading{margin-left:calc(8px - var(--page-left,22px));margin-right:calc(8px - var(--page-right,22px));padding:0;border:0;background:transparent}
-.is-reading .photo-grid{gap:4px}
+.is-reading .photo-grid{gap:8px}
 .is-reading .photo-preview{border-radius:6px}
 .is-reading .photo-grid{display:grid}
 
