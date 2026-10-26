@@ -26,44 +26,22 @@ function entryPhotos(entry: DiaryEntry) {
  return cover ? [cover, ...entry.imageIds.filter(id => id !== cover)] : []
 }
 const mode = 'month' as const
-const calendarDialog = ref<HTMLDialogElement>()
 const calendarOpen = ref(false)
-const calendarClosing = ref(false)
-let closeTimer: ReturnType<typeof setTimeout> | undefined
-let previousOverflow: string | undefined
-function openCalendar() {
- if (!calendarDialog.value || calendarOpen.value) return
+const calendarButton = ref<HTMLButtonElement>()
+function toggleCalendar() {
  resetGesture()
- calendarDialog.value.showModal()
- calendarOpen.value = true
- previousOverflow = document.body.style.overflow
- document.body.style.overflow = 'hidden'
+ calendarOpen.value = !calendarOpen.value
 }
 function closeCalendar() {
- if (!calendarDialog.value?.open || calendarClosing.value) return
  resetGesture()
- if (settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  calendarDialog.value.close()
-  return
- }
- calendarClosing.value = true
- closeTimer = setTimeout(() => calendarDialog.value?.close(), 200)
-}
-function calendarClosed() {
- clearTimeout(closeTimer)
- calendarClosing.value = false
  calendarOpen.value = false
- resetGesture()
- if (previousOverflow !== undefined) document.body.style.overflow = previousOverflow
- previousOverflow = undefined
 }
 function closeOnDate(event: MouseEvent) {
  if (event.target instanceof Element && event.target.closest('a') && !event.defaultPrevented) closeCalendar()
 }
-function backdropClick(event: MouseEvent) {
- if (event.target !== calendarDialog.value) return
- const bounds = calendarDialog.value.getBoundingClientRect()
- if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeCalendar()
+function escapeCalendar() {
+ closeCalendar()
+ calendarButton.value?.focus()
 }
 const anchor = ref(new Date())
 const cells = computed(() => calendarDays(anchor.value, mode))
@@ -155,7 +133,7 @@ function pointerEnd(event: PointerEvent) {
 function preventSwipeClick(event: MouseEvent) {
  if (Date.now() < suppressClickUntil) { event.preventDefault(); event.stopPropagation() }
 }
-onBeforeUnmount(() => { clearTimeout(closeTimer); calendarDialog.value?.close(); calendarClosed() })
+onBeforeUnmount(resetGesture)
 function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 </script>
 
@@ -165,14 +143,10 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
    <p class="eyebrow">YOUR MOMENTS</p>
    <div class="records-heading">
     <h1>記録</h1>
-    <button class="calendar-switch" type="button" aria-label="カレンダーを開く" title="カレンダーを開く" aria-haspopup="dialog" :aria-expanded="calendarOpen" aria-controls="records-calendar-dialog" @click="openCalendar"><AppIcon name="calendar-month" /></button>
+    <button ref="calendarButton" class="calendar-switch" :class="{active:calendarOpen}" type="button" :aria-label="calendarOpen ? 'カレンダーを閉じる' : 'カレンダーを開く'" :title="calendarOpen ? 'カレンダーを閉じる' : 'カレンダーを開く'" :aria-expanded="calendarOpen" aria-controls="records-calendar-panel" @click="toggleCalendar"><AppIcon name="calendar-month" /></button>
    </div>
-
-
-  </header>
-  <Teleport to="body">
-   <dialog id="records-calendar-dialog" ref="calendarDialog" class="calendar-dialog" :class="{ 'without-animation': settings.reducedMotion, closing: calendarClosing }" aria-labelledby="calendar-dialog-title" @cancel.prevent="closeCalendar" @close="calendarClosed" @click="backdropClick">
-    <div class="calendar-dialog-heading"><h2 id="calendar-dialog-title">カレンダー</h2><button type="button" class="calendar-switch" aria-label="カレンダーを閉じる" @click="closeCalendar"><AppIcon name="close" /></button></div>
+   <div id="records-calendar-panel" class="calendar-reveal" :class="{open:calendarOpen,'without-animation':settings.reducedMotion}" :inert="!calendarOpen" :aria-hidden="!calendarOpen" @keydown.esc.stop.prevent="escapeCalendar">
+    <div class="calendar-reveal-inner">
    <section class="records-calendar" aria-label="記録カレンダー" @click="closeOnDate">
     <div id="records-calendar-content">
     <div class="month-nav">
@@ -197,8 +171,9 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
     </div>
     </div>
    </section>
-   </dialog>
-  </Teleport>
+    </div>
+   </div>
+  </header>
   <section class="recent-list" aria-label="日記の一覧">
    <p v-if="!entries.length" class="soft-card">まだ日記がありません。日記を書くと、ここに表示されます。</p>
    <RouterLink v-for="e in entries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': entryPhotos(e).length }" @click="animateEntry"><div v-if="entryPhotos(e).length" class="entry-photo" :class="{'photo-collage':entryPhotos(e).length > 1}"><div class="entry-cover-photo"><EntryThumbnail :id="entryPhotos(e)[0]" alt="日記の代表写真" /></div><div v-if="entryPhotos(e).length > 1" class="entry-other-photos" :class="{'many-photos':entryPhotos(e).length > 5}"><div v-for="id in entryPhotos(e).slice(1)" :key="id" class="entry-small-photo"><EntryThumbnail :id="id" /></div></div></div><div class="entry-icon" v-if="!entryPhotos(e).length"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div class="entry-content"><small>{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{e.guess.trim() || '無題の日記'}}</h3><p v-if="e.tags.length"><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b><div v-if="e.environment?.weather || e.environment?.place" class="entry-environment"><span v-if="e.environment?.weather" class="entry-weather"><AppIcon :name="e.environment.weather.code < 3 ? 'sun' : 'cloud'" /><span>{{ weatherLabel(e.environment.weather.code) }} <span class="high" aria-label="最高気温">↑{{ Math.round(e.environment.weather.high) }}°</span> <span class="low" aria-label="最低気温">↓{{ Math.round(e.environment.weather.low) }}°</span></span></span><span v-if="e.environment?.place" class="entry-place"><AppIcon name="pin" /><span>{{ e.environment.place }}</span></span></div></RouterLink>
@@ -207,21 +182,15 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 </template>
 
 <style scoped>
-.calendar-dialog { width: min(430px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 18px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); overflow-y: auto; }
-.calendar-dialog::backdrop { background: rgba(14,24,20,.45); }
-.calendar-dialog[open] { animation: calendar-appear 240ms cubic-bezier(.2,.7,.3,1); }
-.calendar-dialog[open]::backdrop { animation: calendar-backdrop-appear 240ms ease-out; }
-.calendar-dialog[open].closing { animation: calendar-disappear 200ms ease-in forwards; pointer-events: none; }
-.calendar-dialog[open].closing::backdrop { animation: calendar-backdrop-disappear 200ms ease-in forwards; }
-@keyframes calendar-disappear { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(12px) scale(.97); } }
-@keyframes calendar-backdrop-disappear { from { opacity: 1; } to { opacity: 0; } }
-@keyframes calendar-appear { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes calendar-backdrop-appear { from { opacity: 0; } to { opacity: 1; } }
-.calendar-dialog.without-animation[open], .calendar-dialog.without-animation[open]::backdrop { animation: none; }
-@media (prefers-reduced-motion: reduce) { .calendar-dialog[open], .calendar-dialog[open]::backdrop { animation: none; } }
-
-.calendar-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.calendar-dialog-heading h2 { margin: 0; font-size: 1.1rem; }
+.calendar-reveal{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 280ms cubic-bezier(.2,.7,.3,1),opacity 180ms ease}
+.calendar-reveal.open{grid-template-rows:1fr;opacity:1}
+.calendar-reveal-inner{min-height:0;overflow:hidden}
+.calendar-reveal .records-calendar{margin-top:12px;padding-bottom:12px;transform:translateY(-16px);transition:transform 280ms cubic-bezier(.2,.7,.3,1)}
+.calendar-reveal.open .records-calendar{transform:translateY(0)}
+.calendar-switch.active{background:var(--forest);color:white;border-color:var(--forest)}
+.calendar-reveal.without-animation,.calendar-reveal.without-animation .records-calendar{transition:none}
+:global(.reduce-motion) .calendar-reveal,:global(.reduce-motion) .calendar-reveal .records-calendar{transition:none}
+@media(prefers-reduced-motion:reduce){.calendar-reveal,.calendar-reveal .records-calendar{transition:none}}
 
 .calendar-switch { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.65); color: var(--forest); cursor: pointer; }
 .calendar-switch :deep(.app-icon) { width: 22px; height: 22px; }
