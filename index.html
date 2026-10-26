@@ -9,10 +9,17 @@
     <meta name="apple-mobile-web-app-title" content="DayLog" />
     <meta name="color-scheme" content="light" />
     <title>DayLog</title>
+    <link rel="stylesheet" href="/src/splash.css" />
   </head>
   <body>
     <div id="app">
-      <p id="startup-status" role="status" style="margin:0;padding:48px 24px;text-align:center;font:16px/1.8 system-ui,sans-serif;color:#36584b">ログイン状態を確認しています…</p>
+      <section class="app-splash" role="status" aria-busy="true" aria-label="DayLogを起動しています">
+        <div class="splash-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM7 3v18M11 8h6M11 12h6M11 16h4" /></svg></div>
+        <h1 class="splash-title">DayLog</h1>
+        <p class="splash-caption">あなたの日々を、ここに。</p>
+        <div class="splash-progress" aria-hidden="true"><span></span><span></span><span></span></div>
+        <p id="startup-status" class="splash-message" role="alert" hidden></p>
+      </section>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

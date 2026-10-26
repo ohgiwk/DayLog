@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppSplash from './components/AppSplash.vue'
 import AppIcon from "./components/AppIcon.vue"
 
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
@@ -85,7 +86,7 @@ function animateTab(event: MouseEvent) {
     </Transition>
    </RouterView>
   </main>
-  <p v-else class="page" role="alert">{{ account.error || 'ログイン状態を確認しています…' }}</p>
+  <AppSplash v-else :error="account.error" />
   <nav v-if="account.ready && account.user && !authScreen && route.path!='/journal'" class="tabbar" :style="tabKeyboardOffset ? {transform:`translate(-50%, ${tabKeyboardOffset}px)`} : undefined" aria-label="メインメニュー" @click="animateTab">
    <RouterLink to="/" aria-label="ホーム"><span><AppIcon name="home" /></span><small>ホーム</small></RouterLink>
    <RouterLink to="/records" aria-label="記録"><span><AppIcon name="records" /></span><small>記録</small></RouterLink>

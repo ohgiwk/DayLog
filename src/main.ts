@@ -25,6 +25,10 @@ async function start() {
  app.mount('#app')
 }
 void start().catch(() => {
- const status = document.querySelector('#startup-status')
- if (status) status.textContent = '起動できませんでした。通信を確認して再読み込みしてください。'
+ const status = document.querySelector<HTMLElement>('#startup-status')
+ if (status) {
+  status.hidden = false
+  status.textContent = '起動できませんでした。通信を確認して再読み込みしてください。'
+  status.closest('[aria-busy]')?.setAttribute('aria-busy', 'false')
+ }
 })

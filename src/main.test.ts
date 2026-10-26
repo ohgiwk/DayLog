@@ -34,10 +34,11 @@ it('loads the shell during slow auth but preserves callback URLs until auth comp
 })
 
 it('shows a useful error if startup fails instead of leaving the loading message forever', async () => {
- const status = { textContent: 'ログイン状態を確認しています…' }
+ const status = { textContent: '', hidden: true, closest: () => null }
  vi.stubGlobal('document', { addEventListener: vi.fn(), querySelector: () => status })
  startup.initialize.mockRejectedValue(new Error('storage unavailable'))
  await import('./main')
  await vi.waitFor(() => expect(status.textContent).toContain('起動できませんでした'))
+ expect(status.hidden).toBe(false)
  expect(startup.mount).not.toHaveBeenCalled()
 })
