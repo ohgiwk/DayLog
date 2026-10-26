@@ -1,9 +1,11 @@
 import { computed, reactive } from 'vue'
-import type { AppSettings, DiaryEntry } from '../types'
+import type { DiaryEntry } from '../types'
 import { imageRepository } from '../lib/image-repository'
 import { isUntouchedSample } from '../lib/sample-entries'
 import { emptySnapshot, queueEntry, type DiarySnapshot } from '../lib/sync-model'
-const KEY='daylog:v1:entries', SETTINGS='daylog:v1:settings'
+import { loadSettings, settingsKey } from '../lib/app-settings'
+import { dateKey } from '../lib/records-calendar'
+const KEY='daylog:v1:entries'
 export const diaryScope = reactive({ userId: '', generation: 0 })
 let onChange = () => {}
 export function onDiaryChange(callback: () => void) { onChange = callback }
@@ -26,7 +28,7 @@ export function switchDiaryScope(id: string) {
  diaryState.entries = next
 }
 export function guestEntries() { return load() }
-const today=()=>new Date().toISOString().slice(0,10)
+const today = () => dateKey(new Date())
 function load():DiaryEntry[]{
  let stored:DiaryEntry[]
  try {
@@ -42,7 +44,7 @@ function load():DiaryEntry[]{
  return entries
 }
 export const diaryState=reactive({entries:load() as DiaryEntry[]})
-export const settings=reactive<AppSettings>({...{notifications:true,location:true,weather:true,reducedMotion:false,largeText:false},...JSON.parse(localStorage.getItem(SETTINGS)||'{}')})
+export const settings = reactive(loadSettings())
 export const entries=computed(()=>[...diaryState.entries].sort((a,b)=>b.date.localeCompare(a.date)))
 export const todaysEntry=computed(()=>diaryState.entries.find(e=>e.date===today()))
 export function saveEntry(entry:DiaryEntry){
@@ -62,4 +64,4 @@ export async function deleteEntry(id:string){
  if(entry && !diaryScope.userId)await Promise.allSettled(entry.imageIds.map(id => imageRepository.delete(id)))
 }
 export function persist(){if (!diaryScope.userId) localStorage.setItem(KEY,JSON.stringify(diaryState.entries))}
-export function saveSettings(){localStorage.setItem(SETTINGS,JSON.stringify(settings));document.documentElement.classList.toggle('reduce-motion',settings.reducedMotion);document.documentElement.classList.toggle('large-text',settings.largeText)}
+export function saveSettings(){localStorage.setItem(settingsKey,JSON.stringify(settings));document.documentElement.classList.toggle('reduce-motion',settings.reducedMotion);document.documentElement.classList.toggle('large-text',settings.largeText)}

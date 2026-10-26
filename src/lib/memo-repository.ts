@@ -1,3 +1,4 @@
+import { withStore } from './indexed-db'
 import { emptyMemoSnapshot, mergeMemoLibraries, sameMemoValue, type MemoSnapshot } from './memo-sync-model'
 export interface MemoFolder { id: string; name: string }
 export interface Memo { id: string; folderId: string; title: string; html: string; images?: string[]; updatedAt: string }
@@ -11,23 +12,16 @@ const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('
 channel?.addEventListener('message', event => { if (typeof event.data?.id === 'string') listeners.forEach(fn => fn(event.data.id, event.data.local === true)) })
 function notify(id: string, local: boolean) { listeners.forEach(fn => fn(id, local)); channel?.postMessage({ id, local }) }
 // Read-modify-write stays in one transaction, including sync acknowledgements.
-async function access<T>(key: string, update?: (value: T | undefined) => T): Promise<T | undefined> {
- const db = await new Promise<IDBDatabase>((resolve, reject) => {
-  const request = indexedDB.open('daylog-memos', 1)
-  request.onupgradeneeded = () => request.result.createObjectStore('library')
-  request.onsuccess = () => resolve(request.result)
-  request.onerror = () => reject(request.error)
- })
- return new Promise((resolve, reject) => {
-  const tx = db.transaction('library', update ? 'readwrite' : 'readonly'), store = tx.objectStore('library')
-  let result: T | undefined, failure: unknown
+function access<T>(key: string, update?: (value: T | undefined) => T): Promise<T | undefined> {
+ return withStore({ name: 'daylog-memos', store: 'library' }, update ? 'readwrite' : 'readonly', (store, result, abort) => {
   const read = store.get(key)
   read.onsuccess = () => {
-   try { result = update ? update(read.result) : read.result; if (update) store.put(result, key) }
-   catch (error) { failure = error; tx.abort() }
+   try {
+    const value = update ? update(read.result) : read.result
+    if (update) store.put(value, key)
+    result(value)
+   } catch (error) { abort(error) }
   }
-  tx.oncomplete = () => { db.close(); resolve(result) }
-  tx.onabort = tx.onerror = () => { db.close(); reject(failure || tx.error) }
  })
 }
 export async function readMemoSnapshot(id = owner) { return await access<MemoSnapshot>(`account:${id}`) ?? emptyMemoSnapshot() }
