@@ -130,3 +130,17 @@ main {
 :root:has(.journal-page) {
   --status-bar: var(--paper);
 }
+
+/* Keep app labels from being selected on long press while preserving editing. */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+[contenteditable="true"] * {
+  -webkit-user-select: text;
+  user-select: text;
+}

@@ -11,6 +11,8 @@
  box-sizing: border-box;
  background: radial-gradient(ellipse at 75% 25%, #e0efe8, transparent 65%), #f7f8f3;
  color: #244a3d;
+ -webkit-user-select: none;
+ user-select: none;
  text-align: center;
  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif;
 }
