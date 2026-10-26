@@ -143,7 +143,7 @@ window.addEventListener('beforeunload', beforeUnload)
 onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeEventListener('beforeunload', beforeUnload); photos.value.forEach(p => URL.revokeObjectURL(p.url)) })
 </script>
 <template>
- <div class="diary-editor">
+ <div class="diary-editor" :class="{ 'is-new': isNew }">
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
   <section class="diary-photos" :class="{'photos-readonly':readonly}" aria-label="今日の写真">
@@ -224,6 +224,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .remove-photo{display:grid;place-items:center;min-width:32px;color:var(--sub);padding:6px}
 .remove-photo:hover{color:#a3463d;background:#f9edeb;border-radius:12px}
 .collection-actions{position:fixed;z-index:25;left:max(20px,calc((100vw - var(--app-width,430px))/2 + 20px));bottom:calc(102px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;margin:0}
+.is-new .collection-actions{bottom:calc(20px + env(safe-area-inset-bottom,0px))}
 .collection-actions button{appearance:none;position:relative;display:grid;place-items:center;flex:0 0 48px;width:48px;min-width:48px;max-width:48px;height:48px;min-height:48px;max-height:48px;margin:0;padding:0;border:0;border-radius:50%;line-height:1;cursor:pointer;box-shadow:0 4px 16px rgba(36,74,61,.18)}
 .collection-actions input{display:none}
 .collection-actions button:focus-visible,.photo-preview:focus-visible,.photo-card-actions button:focus-visible{outline:2px solid var(--forest);outline-offset:3px}

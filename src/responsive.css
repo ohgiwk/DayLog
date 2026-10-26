@@ -125,3 +125,8 @@ main {
 .app-shell:has(.status-photo-visible)::before {
   background: transparent;
 }
+
+/* New diaries have a paper background instead of the home header gradient. */
+:root:has(.journal-page) {
+  --status-bar: var(--paper);
+}
