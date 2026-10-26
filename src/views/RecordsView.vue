@@ -8,6 +8,19 @@ import { entries, settings } from '../stores/diary'
 import { swipeDirection } from '../lib/calendar-swipe'
 import { calendarDays, dateKey, moveCalendar } from '../lib/records-calendar'
 
+function animateEntry(event: MouseEvent) {
+ if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+ if (settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+ const row = event.currentTarget
+ if (!(row instanceof HTMLElement)) return
+ row.getAnimations().forEach(effect => effect.cancel())
+ row.animate([
+  { transform: 'scale(1)' },
+  { transform: 'scale(.975)', offset: .35 },
+  { transform: 'scale(1)' },
+ ], { duration: 240, easing: 'cubic-bezier(.2,.7,.3,1)' })
+}
+
 function entryPhotos(entry: DiaryEntry) {
  const cover = entry.thumbnailImageId || entry.imageIds[0]
  return cover ? [cover, ...entry.imageIds.filter(id => id !== cover)] : []
@@ -188,7 +201,7 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
   </Teleport>
   <section class="recent-list" aria-label="日記の一覧">
    <p v-if="!entries.length" class="soft-card">まだ日記がありません。日記を書くと、ここに表示されます。</p>
-   <RouterLink v-for="e in entries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': entryPhotos(e).length }"><div v-if="entryPhotos(e).length" class="entry-photo" :class="{'photo-collage':entryPhotos(e).length > 1}"><div class="entry-cover-photo"><EntryThumbnail :id="entryPhotos(e)[0]" alt="日記の代表写真" /></div><div v-if="entryPhotos(e).length > 1" class="entry-other-photos" :class="{'many-photos':entryPhotos(e).length > 5}"><div v-for="id in entryPhotos(e).slice(1)" :key="id" class="entry-small-photo"><EntryThumbnail :id="id" /></div></div></div><div class="entry-icon" v-if="!entryPhotos(e).length"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div class="entry-content"><small>{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{e.guess.trim() || '無題の日記'}}</h3><p v-if="e.tags.length"><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b><div v-if="e.environment?.weather || e.environment?.place" class="entry-environment"><span v-if="e.environment?.weather" class="entry-weather"><AppIcon :name="e.environment.weather.code < 3 ? 'sun' : 'cloud'" /><span>{{ weatherLabel(e.environment.weather.code) }} <span class="high" aria-label="最高気温">↑{{ Math.round(e.environment.weather.high) }}°</span> <span class="low" aria-label="最低気温">↓{{ Math.round(e.environment.weather.low) }}°</span></span></span><span v-if="e.environment?.place" class="entry-place"><AppIcon name="pin" /><span>{{ e.environment.place }}</span></span></div></RouterLink>
+   <RouterLink v-for="e in entries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': entryPhotos(e).length }" @click="animateEntry"><div v-if="entryPhotos(e).length" class="entry-photo" :class="{'photo-collage':entryPhotos(e).length > 1}"><div class="entry-cover-photo"><EntryThumbnail :id="entryPhotos(e)[0]" alt="日記の代表写真" /></div><div v-if="entryPhotos(e).length > 1" class="entry-other-photos" :class="{'many-photos':entryPhotos(e).length > 5}"><div v-for="id in entryPhotos(e).slice(1)" :key="id" class="entry-small-photo"><EntryThumbnail :id="id" /></div></div></div><div class="entry-icon" v-if="!entryPhotos(e).length"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div class="entry-content"><small>{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{e.guess.trim() || '無題の日記'}}</h3><p v-if="e.tags.length"><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b><div v-if="e.environment?.weather || e.environment?.place" class="entry-environment"><span v-if="e.environment?.weather" class="entry-weather"><AppIcon :name="e.environment.weather.code < 3 ? 'sun' : 'cloud'" /><span>{{ weatherLabel(e.environment.weather.code) }} <span class="high" aria-label="最高気温">↑{{ Math.round(e.environment.weather.high) }}°</span> <span class="low" aria-label="最低気温">↓{{ Math.round(e.environment.weather.low) }}°</span></span></span><span v-if="e.environment?.place" class="entry-place"><AppIcon name="pin" /><span>{{ e.environment.place }}</span></span></div></RouterLink>
   </section>
  </div>
 </template>
@@ -252,7 +265,14 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 .days > span.written:nth-child(7n) a { background: #e6eff9; }
 .days > span.written:nth-child(7n) i { background: #3477ad; }
 .days [aria-current="date"] { outline: 1px solid var(--sage); outline-offset: -2px; }
-.entry-row { grid-template-columns: 64px minmax(0, 1fr) 12px; }
+.entry-row { grid-template-columns: 64px minmax(0, 1fr) 12px; transform-origin: center; transition: transform 140ms ease, background-color 140ms ease, box-shadow 140ms ease; }
+.entry-row:active { transform: scale(.975); background-color: var(--mist); box-shadow: 0 3px 12px rgba(36,74,61,.1); }
+.entry-row > b { transition: transform 140ms ease; }
+.entry-row:active > b { transform: translateX(3px); }
+:global(.reduce-motion) .entry-row, :global(.reduce-motion) .entry-row > b { transition: none; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+ .entry-row, .entry-row > b { transition: none; transform: none; }
+}
 .entry-row > div { min-width: 0; }
 .entry-row p { overflow-wrap: anywhere; }
 .entry-row.has-photo { grid-template-columns: minmax(0, 1fr) 12px; row-gap: 8px; padding: 0; overflow: hidden; }
