@@ -38,7 +38,8 @@ export function startUpdateChecks(current: string, base: string, notify: (id: st
   const timeout = setTimeout(() => controller.abort(), 10000)
   try {
    const id = await fetchBuildId(base, controller.signal)
-   if (!stopped && id) notify(id === current ? null : id)
+   // A stale CDN response must not erase an update already detected.
+   if (!stopped && id && id !== current) notify(id)
   } finally {
    clearTimeout(timeout)
    pending = undefined
@@ -57,4 +58,20 @@ export function startUpdateChecks(current: string, base: string, notify: (id: st
   window.removeEventListener('online', check)
   document.removeEventListener('visibilitychange', check)
  }
+}
+
+const acknowledgedBuildKey = 'daylog:last-acknowledged-build'
+
+// Remember the last version the user saw, including across full app restarts.
+// Storage failures must never prevent launching or checking for updates.
+export function hasUnacknowledgedUpdate(current: string): boolean {
+ try {
+  const previous = localStorage.getItem(acknowledgedBuildKey)
+  if (!previous) { localStorage.setItem(acknowledgedBuildKey, current); return false }
+  return previous !== current
+ } catch { return false }
+}
+
+export function acknowledgeAppBuild(current: string) {
+ try { localStorage.setItem(acknowledgedBuildKey, current) } catch { /* storage unavailable */ }
 }

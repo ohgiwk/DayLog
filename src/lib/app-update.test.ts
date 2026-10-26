@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchBuildId, prepareAppUpdate, startUpdateChecks } from './app-update'
+import { acknowledgeAppBuild, hasUnacknowledgedUpdate, fetchBuildId, prepareAppUpdate, startUpdateChecks } from './app-update'
 
 let page: EventTarget & { visibilityState: string }
 let browser: EventTarget
@@ -21,7 +21,7 @@ beforeEach(() => {
 afterEach(() => { stop?.(); stop = undefined; vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('update checks', () => {
- it('detects a new build at startup and clears it when the current build is served', async () => {
+ it('keeps a detected update visible even when a stale server returns the current build', async () => {
   request.mockResolvedValue(reply('new'))
   const notify = vi.fn()
   stop = startUpdateChecks('current', '/DayLog/', notify)
@@ -30,7 +30,8 @@ describe('update checks', () => {
   expect(request).toHaveBeenCalledWith(expect.stringMatching(/^\/DayLog\/version.json\?t=/), expect.objectContaining({ cache: 'no-store' }))
   request.mockResolvedValue(reply('current'))
   await vi.advanceTimersByTimeAsync(60000)
-  expect(notify).toHaveBeenLastCalledWith(null)
+  expect(notify).toHaveBeenCalledTimes(1)
+  expect(notify).toHaveBeenLastCalledWith('new')
  })
  it('skips hidden and offline checks, checks on return, and removes listeners on stop', async () => {
   page.visibilityState = 'hidden'
@@ -111,3 +112,34 @@ describe('update checks', () => {
    await result
   })
  })
+
+describe('update acknowledgement across restarts', () => {
+ let stored: Map<string, string>
+ beforeEach(() => {
+  stored = new Map()
+  vi.stubGlobal('localStorage', {
+   getItem: (key: string) => stored.get(key) ?? null,
+   setItem: (key: string, value: string) => stored.set(key, value),
+  })
+ })
+ it('does not show an update on first install or unchanged restarts', () => {
+  expect(hasUnacknowledgedUpdate('first')).toBe(false)
+  expect(hasUnacknowledgedUpdate('first')).toBe(false)
+ })
+ it('keeps a restart-applied update visible until explicitly acknowledged', () => {
+  hasUnacknowledgedUpdate('old')
+  expect(hasUnacknowledgedUpdate('new')).toBe(true)
+  expect(hasUnacknowledgedUpdate('new')).toBe(true)
+  acknowledgeAppBuild('new')
+  expect(hasUnacknowledgedUpdate('new')).toBe(false)
+  expect(hasUnacknowledgedUpdate('newer')).toBe(true)
+ })
+ it('survives unavailable or full browser storage', () => {
+  vi.stubGlobal('localStorage', {
+   getItem: () => { throw new Error('unavailable') },
+   setItem: () => { throw new Error('quota') },
+  })
+  expect(hasUnacknowledgedUpdate('new')).toBe(false)
+  expect(() => acknowledgeAppBuild('new')).not.toThrow()
+ })
+})
