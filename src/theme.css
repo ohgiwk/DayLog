@@ -179,7 +179,7 @@
   background-repeat: no-repeat;
 }
 
-/* Keep the base background solid while routed pages fade in and out. */
+/* Keep the base background consistent across routed pages. */
 .app-shell > main {
   background-color: var(--paper);
   background-image: none;

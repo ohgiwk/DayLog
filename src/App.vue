@@ -81,9 +81,11 @@ function animateTab(event: MouseEvent) {
   <main v-if="account.ready" :class="{ 'auth-main': authScreen }">
    <RouterLink v-if="!authScreen && account.user && (syncState.error || syncState.conflicts.length || memoSyncState.error || memoSyncState.conflict)" to="/settings" class="sync-notice">{{ (syncState.conflicts.length || memoSyncState.conflict) ? '別の端末の変更と重複しています。設定で確認' : '未同期の変更があります。設定で確認' }}</RouterLink>
    <RouterView v-if="account.user || authScreen" v-slot="{ Component, route: currentRoute }">
-    <Transition name="page-fade" mode="out-in">
-     <component :is="Component" :key="`${account.user?.id ?? 'guest'}:${currentRoute.fullPath}`" />
-    </Transition>
+    <div class="route-stack">
+     <Transition name="page-crossfade" :duration="settings.reducedMotion ? 0 : 220">
+      <component :is="Component" :key="`${account.user?.id ?? 'guest'}:${currentRoute.fullPath}`" />
+     </Transition>
+    </div>
    </RouterView>
   </main>
   <AppSplash v-else :error="account.error" />
