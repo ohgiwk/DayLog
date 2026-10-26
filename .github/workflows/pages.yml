@@ -30,6 +30,8 @@ jobs:
       - run: npm test
       - run: npm run build -- --base=/DayLog/
         env:
+          # Capture the push event time, not the commit time or the later build time.
+          APP_RELEASE_DATE: ${{ github.event_name == 'push' && github.event.repository.pushed_at || '' }}
           # Public browser credentials. Row-level policies protect each account's data.
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://twrpxwrznilnnxsfklir.supabase.co' }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pdd4OW-f2rGet0R5TLVAPg_-j9G4P1S' }}

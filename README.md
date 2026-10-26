@@ -15,6 +15,8 @@ npm run build
 
 `service_role` / secret key はブラウザに設定しないでください。GitHub Pages のビルドには、ワークフローに DayLog の公開 URL と publishable key を指定しています。リポジトリ変数 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` で上書きできます。
 
+設定画面の最下部には、そのアプリを配信したプッシュ日時を日本時間のバージョン表記（例：`v2026.10.26-120405`）で表示します。GitHub Actionsがpushイベントの日時をビルドに埋め込むため、起動日時や端末のタイムゾーンには影響されません。手動デプロイ・ローカルビルドではビルド日時を使います。`version.json` の `releasedAt` にも同じ日時を出力します。
+
 ## アカウントの使い方
 
 1. 未ログインでアプリを開くとログイン画面へ移ります。「新規登録」で登録し、確認メールのリンクを開きます。
