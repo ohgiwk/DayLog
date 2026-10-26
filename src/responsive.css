@@ -144,3 +144,9 @@ textarea,
   -webkit-user-select: text;
   user-select: text;
 }
+
+/* The new diary cover, including its empty placeholder, reaches behind the status bar. */
+.app-shell:has(.journal-page .photo-stage .cover-placeholder)::before,
+.app-shell:has(.journal-page .photo-stage .diary-cover)::before {
+  background: transparent;
+}

@@ -150,10 +150,12 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
   <section class="diary-photos" :class="{'photos-readonly':readonly}" aria-label="今日の写真">
-  <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" @open="openPhoto(coverId || '', $event)" />
+  <div class="photo-stage" :class="{empty:!coverUrl}">
+   <button v-if="isNew && !readonly && !coverUrl" type="button" class="photo-empty cover-placeholder" aria-label="写真を追加する" :disabled="busy || draft.imageIds.length >= 10" @click="photoPicker?.click()"><AppIcon name="image" /><span class="placeholder-title">この日の景色も、一緒に。</span><span>写真を添えて、思い出を残しましょう</span></button>
+   <DiaryCover :src="coverUrl" @open="openPhoto(coverId || '', $event)" />
    <button v-if="!readonly && coverUrl" type="button" class="remove-cover" aria-label="代表写真を削除" title="代表写真を削除" :disabled="busy" @click="removePhoto(coverId!)"><TrashIcon /></button>
   </div>
-  <div v-if="!readonly || collectionPhotos.length" class="photo-collection" :class="{'is-reading':readonly}">
+  <div v-if="!readonly || collectionPhotos.length" class="photo-collection" :class="{'is-reading':readonly,'empty-new-collection':isNew && !collectionPhotos.length}">
 
    <div v-if="collectionPhotos.length" class="photo-grid" :class="{'many-photos':collectionPhotos.length > 4}">
     <article v-for="(photo, index) in collectionPhotos" :key="photo.id" class="photo-card" :class="{'is-cover':draft.thumbnailImageId===photo.id}">
@@ -161,7 +163,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
      <div v-if="!readonly" class="photo-card-actions"><button type="button" class="set-cover" :disabled="busy || draft.thumbnailImageId===photo.id" @click="draft.thumbnailImageId=photo.id">{{draft.thumbnailImageId===photo.id?'表紙':'表紙にする'}}</button><button type="button" class="remove-photo" :disabled="busy" :aria-label="`写真${index + 1}を削除`" @click="removePhoto(photo.id)"><TrashIcon /></button></div>
     </article>
    </div>
-   <div v-else-if="!readonly && !coverUrl" class="photo-empty"><AppIcon name="image" /><p>この日の景色も、一緒に。</p><span>写真を添えて、思い出を残しましょう</span></div>
+   <div v-else-if="!isNew && !readonly && !coverUrl" class="photo-empty"><AppIcon name="image" /><p>この日の景色も、一緒に。</p><span>写真を添えて、思い出を残しましょう</span></div>
    <div v-if="!readonly && draft.imageIds.length<10" class="collection-actions">
     <button type="button" title="写真を追加" aria-label="写真を追加" class="add-photo" :disabled="busy" @click="photoPicker?.click()"><AppIcon name="image" /></button>
     <button type="button" title="撮影" aria-label="撮影" class="take-photo" :disabled="busy" @click="cameraPicker?.click()"><AppIcon name="camera" /></button>
@@ -196,6 +198,12 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .remove-cover:hover{color:#a3463d}
 .remove-cover:focus-visible{outline:2px solid var(--forest);outline-offset:3px}
 .photo-stage.empty{padding-top:80px;margin-bottom:24px}
+.is-new .photo-stage{margin-top:calc(-1 * env(safe-area-inset-top,0px))}
+.is-new .photo-stage.empty{padding-top:0}
+.cover-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;min-height:320px;min-height:max(320px,45svh);padding:calc(80px + env(safe-area-inset-top,0px)) var(--page-right,22px) 48px var(--page-left,22px);border:0;border-radius:0;background:var(--mist);color:var(--sub);font:inherit;cursor:pointer}
+.cover-placeholder .placeholder-title{margin-top:8px;color:var(--text);font-size:.85rem}
+.cover-placeholder:focus-visible{outline:3px solid var(--forest);outline-offset:-3px}
+.photo-collection.empty-new-collection{padding:0;border:0;background:transparent}
 .photo-caption{margin-bottom:24px;color:var(--text)}
 .diary-date{margin:0 0 8px;font-size:.8rem;line-height:1.6;color:var(--sub)}
 .title-field{display:flex;flex-direction:column;gap:4px;margin:0;font-size:.72rem;line-height:1.5;color:var(--sub)}
@@ -238,7 +246,7 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .add-photo{background:var(--forest);color:white}
 .collection-actions .take-photo{border:1px solid var(--line);background:var(--paper);color:var(--forest)}
 .collection-actions .disabled{opacity:.5;cursor:wait}
-.photo-empty{text-align:center;padding:16px 0 8px;color:var(--sub)}
+.photo-empty:not(.cover-placeholder){text-align:center;padding:16px 0 8px;color:var(--sub)}
 .photo-empty>.app-icon{width:30px;height:30px;color:var(--sage)}
 .photo-empty p{margin:10px 0 5px;font-size:.85rem;color:var(--text)}
 .photo-empty span{font-size:.68rem}

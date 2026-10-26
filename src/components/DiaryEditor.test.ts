@@ -22,9 +22,9 @@ beforeEach(() => {
  vi.stubGlobal('URL', { createObjectURL: () => `blob:photo-${++sequence}`, revokeObjectURL: vi.fn() })
 })
 afterEach(() => { app?.unmount(); app = undefined; document.body.innerHTML = ''; vi.unstubAllGlobals() })
-async function mount(entry = initial(), readonly = false) {
+async function mount(entry = initial(), readonly = false, isNew = false) {
  const root = document.createElement('div'); document.body.append(root)
- app = createApp(DiaryEditor, { initial: entry, readonly }); app.mount(root)
+ app = createApp(DiaryEditor, { initial: entry, readonly, isNew }); app.mount(root)
  await vi.waitFor(() => expect(document.querySelectorAll('img')).toHaveLength(entry.imageIds.length))
  await nextTick()
 }
@@ -90,4 +90,20 @@ it('moves the previous cover back to the gallery when another photo is selected'
  expect(storage.save).toHaveBeenLastCalledWith(expect.objectContaining({ thumbnailImageId: 'b' }))
  expect(document.querySelector('.diary-cover img')?.getAttribute('src')).toBe('blob:photo-2')
  expect([...document.querySelectorAll('.photo-grid img')].map(img => img.getAttribute('src'))).toEqual(['blob:photo-1', 'blob:photo-3'])
+})
+
+it('opens the photo picker when the full-width empty cover is tapped', async () => {
+ await mount(initial([], undefined), false, true)
+ const picker = document.querySelector<HTMLInputElement>('[aria-label="写真を選択"]')!
+ const click = vi.spyOn(picker, 'click').mockImplementation(() => {})
+ const panel = document.querySelector<HTMLButtonElement>('.photo-stage .cover-placeholder')!
+ expect(panel.textContent).toContain('この日の景色も、一緒に。')
+ panel.click()
+ expect(click).toHaveBeenCalledOnce()
+ expect(document.querySelector('.photo-collection .photo-empty')).toBeNull()
+})
+it('replaces the placeholder with the real cover once photos are available', async () => {
+ await mount(initial(), false, true)
+ expect(document.querySelector('.cover-placeholder')).toBeNull()
+ expect(document.querySelector('.diary-cover')).not.toBeNull()
 })
