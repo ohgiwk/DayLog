@@ -16,10 +16,15 @@ document.addEventListener('wheel', event => {
 }, { passive: false })
 // Finish processing the auth callback before the hash router changes the URL.
 async function start() {
- await initializeAccount()
- const [{ default: App }, { router }] = await Promise.all([import('./App.vue'), import('./router')])
+ // Load the shell while auth restores/refreshes the session. Creating the hash
+ // router must still wait until auth has consumed its callback URL.
+ const [{ default: App }] = await Promise.all([import('./App.vue'), initializeAccount()])
+ const { router } = await import('./router')
  const app = createApp(App).use(router)
  await router.isReady()
  app.mount('#app')
 }
-void start()
+void start().catch(() => {
+ const status = document.querySelector('#startup-status')
+ if (status) status.textContent = '起動できませんでした。通信を確認して再読み込みしてください。'
+})
