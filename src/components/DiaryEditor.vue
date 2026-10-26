@@ -35,7 +35,9 @@ function openPhoto(id: string, event: MouseEvent) {
 const photoPicker = ref<HTMLInputElement>()
 const cameraPicker = ref<HTMLInputElement>()
 const photos = ref<{id: string; url: string}[]>([])
-const coverUrl = computed(() => photos.value.find(photo => photo.id === draft.thumbnailImageId)?.url || '')
+const coverId = computed(() => draft.imageIds.includes(draft.thumbnailImageId || '') ? draft.thumbnailImageId! : draft.imageIds[0])
+const coverUrl = computed(() => photos.value.find(photo => photo.id === coverId.value)?.url || '')
+const collectionPhotos = computed(() => photos.value.filter(photo => !coverUrl.value || photo.id !== coverId.value))
 const dateLabel = computed(() => {
  const date = new Date(draft.date + 'T12:00:00')
  const day = new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }).format(date)
@@ -100,9 +102,10 @@ async function removePhoto(id: string) {
  if (busy.value || !await confirmDelete({ title: '写真を削除しますか？', message: 'この写真を日記から削除します。削除すると元に戻せません。' })) return
  if (disposed || !sameOwner()) return
  const previous = [...draft.imageIds], thumbnail = draft.thumbnailImageId
+ const deletingCover = coverId.value === id
  changingPhoto = true
  draft.imageIds = draft.imageIds.filter(value => value !== id)
- if (thumbnail === id) draft.thumbnailImageId = draft.imageIds[0]
+ if (deletingCover) draft.thumbnailImageId = draft.imageIds[0]
  const saved = save()
  if (!saved) { draft.imageIds = previous; draft.thumbnailImageId = thumbnail }
  changingPhoto = false
@@ -147,18 +150,18 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
   <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
   <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
   <section class="diary-photos" :class="{'photos-readonly':readonly}" aria-label="今日の写真">
-  <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" @open="openPhoto(draft.thumbnailImageId || '', $event)" />
-
+  <div class="photo-stage" :class="{empty:!coverUrl}"><DiaryCover :src="coverUrl" @open="openPhoto(coverId || '', $event)" />
+   <button v-if="!readonly && coverUrl" type="button" class="remove-cover" aria-label="代表写真を削除" title="代表写真を削除" :disabled="busy" @click="removePhoto(coverId!)"><TrashIcon /></button>
   </div>
-  <div v-if="!readonly || photos.length > 1 || (photos.length && !coverUrl)" class="photo-collection" :class="{'is-reading':readonly}">
+  <div v-if="!readonly || collectionPhotos.length" class="photo-collection" :class="{'is-reading':readonly}">
 
-   <div v-if="photos.length" class="photo-grid" :class="{'many-photos':photos.length > 4}">
-    <article v-for="(photo, index) in photos" :key="photo.id" class="photo-card" :class="{'is-cover':draft.thumbnailImageId===photo.id}">
+   <div v-if="collectionPhotos.length" class="photo-grid" :class="{'many-photos':collectionPhotos.length > 4}">
+    <article v-for="(photo, index) in collectionPhotos" :key="photo.id" class="photo-card" :class="{'is-cover':draft.thumbnailImageId===photo.id}">
      <button type="button" class="photo-preview" :aria-label="`写真${index + 1}を拡大する`" @click="openPhoto(photo.id, $event)"><img :src="photo.url" alt="日記の写真" /><span v-if="draft.thumbnailImageId===photo.id" class="cover-badge"><AppIcon name="check" />表紙</span></button>
      <div v-if="!readonly" class="photo-card-actions"><button type="button" class="set-cover" :disabled="busy || draft.thumbnailImageId===photo.id" @click="draft.thumbnailImageId=photo.id">{{draft.thumbnailImageId===photo.id?'表紙':'表紙にする'}}</button><button type="button" class="remove-photo" :disabled="busy" :aria-label="`写真${index + 1}を削除`" @click="removePhoto(photo.id)"><TrashIcon /></button></div>
     </article>
    </div>
-   <div v-else-if="!readonly" class="photo-empty"><AppIcon name="image" /><p>この日の景色も、一緒に。</p><span>写真を添えて、思い出を残しましょう</span></div>
+   <div v-else-if="!readonly && !coverUrl" class="photo-empty"><AppIcon name="image" /><p>この日の景色も、一緒に。</p><span>写真を添えて、思い出を残しましょう</span></div>
    <div v-if="!readonly && draft.imageIds.length<10" class="collection-actions">
     <button type="button" title="写真を追加" aria-label="写真を追加" class="add-photo" :disabled="busy" @click="photoPicker?.click()"><AppIcon name="image" /></button>
     <button type="button" title="撮影" aria-label="撮影" class="take-photo" :disabled="busy" @click="cameraPicker?.click()"><AppIcon name="camera" /></button>
@@ -188,7 +191,10 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 .editor-status{display:flex;align-items:center;justify-content:space-between;gap:12px}.editor-status p{font-size:.75rem;color:var(--sub)}.diary-editor>label{display:flex;flex-direction:column;gap:8px;margin:20px 0;font-size:.8rem;font-weight:700}.diary-editor>label small{font-weight:400;color:var(--sub)}.diary-editor textarea,.diary-editor>label input{width:100%;padding:15px;border:1px solid var(--line);border-radius:18px;background:white;color:var(--text)}.diary-editor textarea:focus-visible,.diary-editor input:focus-visible{outline:2px solid var(--sage)}.photo-heading{font-size:.8rem;margin-bottom:12px}.photo-actions{margin-top:12px}.diary-editor button:disabled{opacity:.5;cursor:wait}
 .diary-editor textarea{min-height:260px;line-height:1.8}
 .diary-photos{margin:0 0 20px;padding:0;border:0;background:transparent}
-.photo-stage{margin:0 calc(-1 * var(--page-right,22px)) 24px calc(-1 * var(--page-left,22px));padding-top:0}
+.photo-stage{position:relative;margin:0 calc(-1 * var(--page-right,22px)) 24px calc(-1 * var(--page-left,22px));padding-top:0}
+.remove-cover{position:absolute;right:max(14px,env(safe-area-inset-right,0px));bottom:14px;display:grid;place-items:center;width:44px;height:44px;padding:11px;border:1px solid var(--line);border-radius:50%;background:rgba(255,255,255,.94);color:var(--forest);box-shadow:0 4px 16px rgba(36,74,61,.15);cursor:pointer}
+.remove-cover:hover{color:#a3463d}
+.remove-cover:focus-visible{outline:2px solid var(--forest);outline-offset:3px}
 .photo-stage.empty{padding-top:80px;margin-bottom:24px}
 .photo-caption{margin-bottom:24px;color:var(--text)}
 .diary-date{margin:0 0 8px;font-size:.8rem;line-height:1.6;color:var(--sub)}
