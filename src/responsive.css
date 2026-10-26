@@ -1,5 +1,8 @@
 :root {
   --app-width: 430px;
+  /* The safe area replaces the normal bottom padding; do not add both. */
+  --tabbar-bottom-padding: max(8px, env(safe-area-inset-bottom, 0px));
+  --tabbar-height: calc(74px + var(--tabbar-bottom-padding));
   --page-left: max(22px, env(safe-area-inset-left, 0px));
   --page-right: max(22px, env(safe-area-inset-right, 0px));
   color-scheme: light;
@@ -34,15 +37,16 @@ body {
 }
 
 main {
-  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--tabbar-height) + 14px);
 }
 
 .tabbar {
+  bottom: 0;
   width: min(var(--app-width), 100%);
   background: var(--paper);
   backdrop-filter: none;
-  height: calc(82px + env(safe-area-inset-bottom, 0px));
-  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  height: var(--tabbar-height);
+  padding-bottom: var(--tabbar-bottom-padding);
   padding-left: max(18px, env(safe-area-inset-left, 0px));
   padding-right: max(18px, env(safe-area-inset-right, 0px));
 }
