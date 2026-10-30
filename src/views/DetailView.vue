@@ -11,12 +11,15 @@ import { fadeView } from '../lib/fade-view'
 const route=useRoute(),router=useRouter()
 const deletingEntry = shallowRef<DiaryEntry>()
 const entry = computed(() => diaryState.entries.find(e => e.id === route.params.id) || deletingEntry.value)
-const editing = ref(false)
-watch(() => route.params.id, () => { editing.value = false; questionsOpen.value = false; closeMenu() })
+const editing = computed(() => route.query.edit === '1')
+watch(() => route.params.id, () => { questionsOpen.value = false; closeMenu() })
 function toggleEditing() {
  if (!editor.value || editor.value.busy) return
  if (editing.value && !editor.value.finishEditing()) return
- editing.value = !editing.value
+ const query = { ...route.query }
+ if (editing.value) delete query.edit
+ else query.edit = '1'
+ void router.replace({ path: route.path, query })
  closeMenu()
 }
 const editor = ref<InstanceType<typeof DiaryEditor>>()

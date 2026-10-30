@@ -14,7 +14,10 @@ import { existingJournalPath } from './lib/journal-navigation'
 import { entries, saveSettings, settings } from './stores/diary'
 saveSettings()
 const route=useRoute(), router=useRouter()
-const writeTarget = computed(() => existingJournalPath(entries.value) || '/journal')
+const writeTarget = computed(() => {
+ const path = existingJournalPath(entries.value)
+ return path ? { path, query: { edit: '1' } } : '/journal'
+})
 const authScreen = computed(() => isAuthPath(route.path))
 setEditingCheck(() => route.path === '/journal' || route.path.startsWith('/entry/'))
 startSync()
