@@ -91,6 +91,9 @@ async function removeDiary() {
 <style scoped>
 .detail-page{position:relative;isolation:isolate;padding-top:0}
 .detail-editor{padding-bottom:80px}
+.detail-editor :deep(.diary-cover){position:relative;height:40vh;height:40dvh;overflow:hidden}
+.detail-editor :deep(.diary-cover)::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,transparent 80%,rgba(0,0,0,.55) 100%)}
+.detail-editor :deep(.diary-cover img){height:100%;object-fit:cover;object-position:center center}
 .question-fab{position:fixed;z-index:25;right:max(20px,calc((100vw - var(--app-width,430px))/2 + 20px));bottom:calc(102px + env(safe-area-inset-bottom,0px));display:grid;place-items:center;width:56px;height:56px;padding:0;border:0;border-radius:50%;background:var(--forest);color:white;box-shadow:0 6px 20px rgba(36,74,61,.25);cursor:pointer}
 .question-fab :deep(.app-icon){width:26px;height:26px}
 .question-fab:hover{filter:brightness(1.1)}
