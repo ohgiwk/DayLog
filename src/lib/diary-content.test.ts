@@ -11,7 +11,7 @@ it('does not count defaults, whitespace, formatting or skipped questions as inpu
  expect(hasDiaryContent({ ...blank, body: 'daylog-richtext-v1:' + JSON.stringify({ html: '<h2><br></h2>', text: '\n' }) })).toBe(false)
 })
 it('counts written text, tomorrow, photos and explicit answers independently', () => {
- const cases: Partial<DiaryEntry>[] = [{ body: '日記' }, { environment: {place:'東京都 千代田区',recordedAt:''} }, { guess: '自分で付けたタイトル' }, { tomorrow: '散歩' }, { imageIds: ['photo'] }, { answers: { mood: '3' } }, { answers: { exercise: 'no' } }]
+ const cases: Partial<DiaryEntry>[] = [{ tags: ['旅行'] }, { body: '日記' }, { environment: {place:'東京都 千代田区',recordedAt:''} }, { guess: '自分で付けたタイトル' }, { tomorrow: '散歩' }, { imageIds: ['photo'] }, { answers: { mood: '3' } }, { answers: { exercise: 'no' } }]
  for (const changes of cases) {
   expect(hasDiaryContent({ ...blank, ...changes })).toBe(true)
  }

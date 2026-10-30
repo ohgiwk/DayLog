@@ -3,6 +3,8 @@ import { computed } from 'vue'
 const props = defineProps<{ name: string }>()
 const aliases: Record<string, string> = { '😌':'smile', '🙂':'smile', '🌿':'leaf', '🌧️':'cloud', '🌙':'moon', '☀️':'sun', '☁️':'cloud', '🍃':'leaf', '○':'circle', '◌':'circle-dashed', '—':'minus', '…':'more', '🚶':'walk', '🏃':'walk', '🧘':'person', '🏸':'activity' }
 const paths: Record<string, string> = {
+ search:'M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Zm-2 5 6 6',
+ tag:'M3 3h8l10 10-8 8L3 11V3ZM7 7h.01',
  'calendar-month':'M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM7 2v4M17 2v4M3 10h18M7 14h.01M12 14h.01M17 14h.01M7 18h.01M12 18h.01M17 18h.01',
  'calendar-week':'M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM7 2v4M17 2v4M3 10h18M7 15h10',
  'calendar-hidden':'M9 4h10a2 2 0 0 1 2 2v10M17 2v4M3 10h7M3 7v12a2 2 0 0 0 2 2h12M3 3l18 18',

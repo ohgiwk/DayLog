@@ -4,10 +4,19 @@ import AppIcon from '../components/AppIcon.vue'
 import EntryThumbnail from '../components/EntryThumbnail.vue'
 import type { DiaryEntry } from '../types'
 import { weatherLabel } from '../lib/diary-weather'
+import { filterRecords } from '../lib/records-search'
 import { entries, settings } from '../stores/diary'
 import { swipeDirection } from '../lib/calendar-swipe'
 import { calendarDays, dateKey, moveCalendar } from '../lib/records-calendar'
 
+const searchText = ref(''), selectedTag = ref('')
+const searchDialog = ref<HTMLDialogElement>()
+const searchButton = ref<HTMLButtonElement>()
+function openSearch() { searchDialog.value?.showModal() }
+function closeSearch() { searchDialog.value?.close(); searchButton.value?.focus() }
+const availableTags = computed(() => [...new Set(entries.value.flatMap(entry => entry.tags))].sort((a,b) => a.localeCompare(b, 'ja')))
+const filteredEntries = computed(() => filterRecords(entries.value, searchText.value, selectedTag.value))
+function clearSearch() { searchText.value = ''; selectedTag.value = '' }
 function animateEntry(event: MouseEvent) {
  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
  if (settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -133,7 +142,7 @@ function pointerEnd(event: PointerEvent) {
 function preventSwipeClick(event: MouseEvent) {
  if (Date.now() < suppressClickUntil) { event.preventDefault(); event.stopPropagation() }
 }
-onBeforeUnmount(resetGesture)
+onBeforeUnmount(() => { resetGesture(); searchDialog.value?.close() })
 function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 </script>
 
@@ -144,7 +153,10 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
    <p class="eyebrow">YOUR MOMENTS</p>
    <div class="records-heading">
     <h1>記録</h1>
+    <div class="records-header-actions">
     <button ref="calendarButton" class="calendar-switch" :class="{active:calendarOpen}" type="button" :aria-label="calendarOpen ? 'カレンダーを閉じる' : 'カレンダーを開く'" :title="calendarOpen ? 'カレンダーを閉じる' : 'カレンダーを開く'" :aria-expanded="calendarOpen" aria-controls="records-calendar-panel" @click="toggleCalendar"><AppIcon name="calendar-month" /></button>
+    <button ref="searchButton" type="button" class="search-toggle" :class="{active:searchText || selectedTag}" aria-label="検索・絞り込みを開く" title="検索・絞り込み" aria-haspopup="dialog" @click="openSearch"><AppIcon name="search" /></button>
+    </div>
    </div>
    <div id="records-calendar-panel" class="calendar-reveal" :class="{open:calendarOpen,'without-animation':settings.reducedMotion}" :inert="!calendarOpen" :aria-hidden="!calendarOpen" @keydown.esc.stop.prevent="escapeCalendar">
     <div class="calendar-reveal-inner">
@@ -175,14 +187,43 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
     </div>
    </div>
   </header>
+  <section class="records-search" aria-label="日記を検索">
+   <Teleport to="body">
+    <dialog ref="searchDialog" class="records-search-dialog" aria-labelledby="records-search-title" @cancel.prevent="closeSearch" @click="($event.target === searchDialog) && closeSearch()">
+     <div class="search-dialog-heading"><h2 id="records-search-title"><AppIcon name="search" />検索・絞り込み</h2><button type="button" class="search-dialog-close" aria-label="検索・絞り込みを閉じる" @click="closeSearch">×</button></div>
+     <div class="search-controls">
+   <label>テキスト検索<input v-model="searchText" type="search" placeholder="タイトル・本文・場所など" /></label>
+   <div v-if="availableTags.length" class="tag-filter" role="group" aria-label="タグで絞り込み">
+    <p>タグで絞り込み</p>
+    <div class="tag-filter-buttons">
+     <button type="button" :aria-pressed="selectedTag === ''" @click="selectedTag = ''">すべて</button>
+     <button v-for="tag in availableTags" :key="tag" type="button" :aria-pressed="selectedTag === tag" @click="selectedTag = selectedTag === tag ? '' : tag"># {{tag}}</button>
+    </div>
+   </div>
+    </div>
+    <div class="search-summary"><span role="status">{{filteredEntries.length}}件の日記</span><button v-if="searchText || selectedTag" type="button" @click="clearSearch">検索をクリア</button></div>
+    <button type="button" class="primary-button full" @click="closeSearch">検索結果を表示</button>
+    </dialog>
+   </Teleport>
+   <div class="search-summary"><span role="status">{{filteredEntries.length}}件の日記</span><button v-if="searchText || selectedTag" type="button" @click="clearSearch">検索をクリア</button></div>
+  </section>
   <section class="recent-list" aria-label="日記の一覧">
    <p v-if="!entries.length" class="soft-card">まだ日記がありません。日記を書くと、ここに表示されます。</p>
-   <RouterLink v-for="e in entries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': entryPhotos(e).length }" @click="animateEntry"><div v-if="entryPhotos(e).length" class="entry-photo" :class="{'photo-collage':entryPhotos(e).length > 1}"><div class="entry-cover-photo"><EntryThumbnail :id="entryPhotos(e)[0]" alt="日記の代表写真" /></div><div v-if="entryPhotos(e).length > 1" class="entry-other-photos" :class="{'many-photos':entryPhotos(e).length > 5}"><div v-for="id in entryPhotos(e).slice(1)" :key="id" class="entry-small-photo"><EntryThumbnail :id="id" /></div></div></div><div class="entry-icon" v-if="!entryPhotos(e).length"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div class="entry-content"><small>{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{e.guess.trim() || '無題の日記'}}</h3><p v-if="e.tags.length"><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b><div v-if="e.environment?.weather || e.environment?.place" class="entry-environment"><span v-if="e.environment?.weather" class="entry-weather"><AppIcon :name="e.environment.weather.code < 3 ? 'sun' : 'cloud'" /><span>{{ weatherLabel(e.environment.weather.code) }} <span class="high" aria-label="最高気温">↑{{ Math.round(e.environment.weather.high) }}°</span> <span class="low" aria-label="最低気温">↓{{ Math.round(e.environment.weather.low) }}°</span></span></span><span v-if="e.environment?.place" class="entry-place"><AppIcon name="pin" /><span>{{ e.environment.place }}</span></span></div></RouterLink>
+   <p v-if="entries.length && !filteredEntries.length" class="soft-card">条件に一致する日記がありません。検索条件を変えてお試しください。</p>
+   <RouterLink v-for="e in filteredEntries" :key="e.id" :to="`/entry/${e.id}`" class="entry-row" :class="{ 'has-photo': entryPhotos(e).length }" @click="animateEntry"><div v-if="entryPhotos(e).length" class="entry-photo" :class="{'photo-collage':entryPhotos(e).length > 1}"><div class="entry-cover-photo"><EntryThumbnail :id="entryPhotos(e)[0]" alt="日記の代表写真" /></div><div v-if="entryPhotos(e).length > 1" class="entry-other-photos" :class="{'many-photos':entryPhotos(e).length > 5}"><div v-for="id in entryPhotos(e).slice(1)" :key="id" class="entry-small-photo"><EntryThumbnail :id="id" /></div></div></div><div class="entry-icon" v-if="!entryPhotos(e).length"><AppIcon :name="['moon','leaf','sun','cloud','leaf'][e.mood-1]" /></div><div class="entry-content"><small>{{new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(e.date+'T12:00'))}}</small><h3>{{e.guess.trim() || '無題の日記'}}</h3><p v-if="e.tags.length"><span v-for="t in e.tags" :key="t">#{{t}} </span></p></div><b><AppIcon name="chevron-right" /></b><div v-if="e.environment?.weather || e.environment?.place" class="entry-environment"><span v-if="e.environment?.weather" class="entry-weather"><AppIcon :name="e.environment.weather.code < 3 ? 'sun' : 'cloud'" /><span>{{ weatherLabel(e.environment.weather.code) }} <span class="high" aria-label="最高気温">↑{{ Math.round(e.environment.weather.high) }}°</span> <span class="low" aria-label="最低気温">↓{{ Math.round(e.environment.weather.low) }}°</span></span></span><span v-if="e.environment?.place" class="entry-place"><AppIcon name="pin" /><span>{{ e.environment.place }}</span></span></div></RouterLink>
   </section>
  </div>
 </template>
 
 <style scoped>
+.records-header-actions{display:flex;align-items:center;gap:8px}.records-search-dialog{width:min(400px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--line);border-radius:24px;padding:22px;background:var(--surface);color:var(--text);box-shadow:0 12px 36px rgba(31,61,50,.2)}.records-search-dialog::backdrop{background:rgba(25,45,39,.4);backdrop-filter:blur(4px)}.search-dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.search-dialog-heading h2{display:flex;align-items:center;gap:8px;margin:0;font-size:1.05rem}.search-dialog-close{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--sub);font-size:1.4rem;cursor:pointer}.records-search-dialog label{display:grid;gap:6px;font-size:.75rem;color:var(--sub)}.records-search-dialog input{width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);font-size:16px}.records-search-dialog :is(input,button):focus-visible,.search-toggle:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+
+.search-toggle-row{display:flex;align-items:center;gap:8px}.search-controls{display:grid;gap:14px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}.filter-active{padding:3px 7px;border-radius:12px;background:var(--mist);font-size:.65rem;color:var(--forest)}
+
+.tag-filter p{margin:0 0 8px;font-size:.75rem;color:var(--sub)}.tag-filter-buttons{display:flex;flex-wrap:wrap;gap:8px}.tag-filter-buttons button{max-width:100%;min-height:36px;padding:6px 12px;border:1px solid var(--line);border-radius:18px;background:var(--surface);color:var(--forest);font-size:.78rem;overflow-wrap:anywhere;cursor:pointer}.tag-filter-buttons button[aria-pressed="true"]{border-color:var(--forest);background:var(--forest);color:white}
+
+.records-search{display:grid;gap:12px;margin:16px 0 20px}.records-search label{display:grid;gap:6px;font-size:.75rem;color:var(--sub)}.records-search input{width:100%;min-width:0;min-height:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 12px;color:var(--text);font-size:16px}.search-summary{display:flex;align-items:center;justify-content:space-between;font-size:.75rem;color:var(--sub)}.search-summary button{min-height:44px;border:0;background:transparent;color:var(--forest);cursor:pointer}.records-search :is(input,button):focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+
 .records-settings-link{position:absolute;top:12px;right:var(--page-right);display:flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;border-radius:14px;background:var(--surface);color:var(--forest);font-size:.8rem;text-decoration:none}
 .records-settings-link:focus-visible{outline:2px solid var(--forest);outline-offset:3px}
 
@@ -191,14 +232,14 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 .calendar-reveal-inner{min-height:0;overflow:hidden}
 .calendar-reveal .records-calendar{margin-top:12px;padding-bottom:12px;transform:translateY(-16px);transition:transform 280ms cubic-bezier(.2,.7,.3,1)}
 .calendar-reveal.open .records-calendar{transform:translateY(0)}
-.calendar-switch.active{background:var(--forest);color:white;border-color:var(--forest)}
+.calendar-switch.active,.search-toggle.active{background:var(--forest);color:white;border-color:var(--forest)}
 .calendar-reveal.without-animation,.calendar-reveal.without-animation .records-calendar{transition:none}
 :global(.reduce-motion) .calendar-reveal,:global(.reduce-motion) .calendar-reveal .records-calendar{transition:none}
 @media(prefers-reduced-motion:reduce){.calendar-reveal,.calendar-reveal .records-calendar{transition:none}}
 
-.calendar-switch { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.65); color: var(--forest); cursor: pointer; }
-.calendar-switch :deep(.app-icon) { width: 22px; height: 22px; }
-.calendar-switch:focus-visible { outline: 2px solid var(--forest); outline-offset: 2px; }
+.calendar-switch,.search-toggle { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.65); color: var(--forest); cursor: pointer; }
+.calendar-switch :deep(.app-icon),.search-toggle :deep(.app-icon) { width: 22px; height: 22px; }
+.calendar-switch:focus-visible,.search-toggle:focus-visible { outline: 2px solid var(--forest); outline-offset: 2px; }
 /* Clipping must not create a separate scroll container for the sticky header. */
 :global(.app-shell:has(.records-page)) { overflow: clip; }
 .records-header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 15; padding-bottom: 4px; box-shadow: 0 6px 14px rgba(32,50,44,.06); }

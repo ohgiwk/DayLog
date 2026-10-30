@@ -9,7 +9,7 @@ import RichTextEditor from "./RichTextEditor.vue"
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import type { DiaryEntry, DiaryEnvironment } from '../types'
-import { diaryScope, saveEntry, deleteEntry } from '../stores/diary'
+import { diaryScope, entries, saveEntry, deleteEntry } from '../stores/diary'
 import { compressImage, imageRepository } from '../lib/image-repository'
 import { confirmDelete } from '../lib/delete-confirmation'
 import TrashIcon from './TrashIcon.vue'
@@ -27,6 +27,26 @@ const titleInput = computed({
  get: () => props.isNew && draft.guess === suggestedTitle.value ? '' : draft.guess,
  set: (value: string) => { draft.guess = value },
 })
+const tagDialog = ref<HTMLDialogElement>()
+const tagTrigger = ref<HTMLButtonElement>()
+const tagInput = ref('')
+const suggestedTags = computed(() => [...new Set(entries.value
+ .filter(entry => entry.id !== draft.id)
+ .flatMap(entry => entry.tags))]
+ .filter(tag => !draft.tags.includes(tag))
+ .sort((a,b) => a.localeCompare(b, 'ja')))
+function selectTag(tag: string) {
+ if (!draft.tags.includes(tag)) { draft.tags = [...draft.tags, tag]; save() }
+}
+function openTags() { tagInput.value = ''; tagDialog.value?.showModal() }
+function closeTags() { tagDialog.value?.close(); tagInput.value = ''; tagTrigger.value?.focus() }
+function addTag() {
+ const tag = tagInput.value.normalize('NFKC').trim().replace(/^[#＃]+/, '').trim()
+ if (!tag) return
+ selectTag(tag)
+ tagInput.value = ''
+}
+function removeTag(tag: string) { draft.tags = draft.tags.filter(value => value !== tag); save() }
 const previewOrigin = ref<{left:number;top:number;width:number;height:number}>()
 function openPhoto(id: string, event: MouseEvent) {
  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
@@ -144,7 +164,7 @@ function beforeUnload(event: BeforeUnloadEvent) {
  if (unsaved || busy.value) { event.preventDefault(); event.returnValue = '' }
 }
 window.addEventListener('beforeunload', beforeUnload)
-onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeEventListener('beforeunload', beforeUnload); photos.value.forEach(p => URL.revokeObjectURL(p.url)) })
+onBeforeUnmount(() => { stopUpdatePreparation(); tagDialog.value?.close(); disposed = true; window.removeEventListener('beforeunload', beforeUnload); photos.value.forEach(p => URL.revokeObjectURL(p.url)) })
 </script>
 <template>
  <div class="diary-editor" :class="{ 'is-new': isNew }">
@@ -180,15 +200,41 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
   <div class="title-field"><h1 v-if="readonly" class="read-title">{{ draft.guess || '無題の日記' }}</h1><input v-else v-model="titleInput" aria-label="タイトル" :placeholder="isNew ? suggestedTitle : '日記のタイトル'"></div>
 
   </div>
-  <div v-if="draft.tags.length" class="tag-list"><span v-for="tag in draft.tags" :key="tag"># {{tag}}</span></div>
   <div class="body-heading">今日のこと</div><RichTextEditor v-model="draft.body" :readonly="readonly"/>
   <section v-if="readonly && draft.tomorrow" class="read-tomorrow"><h2 class="body-heading">明日やりたいこと</h2><p>{{ draft.tomorrow }}</p></section>
   <label v-if="!readonly"><span class="field-heading">明日やりたいこと <small>任意</small></span><input v-model="draft.tomorrow" placeholder="例：少し早く休む"></label>
+  <section v-if="!readonly || draft.tags.length" class="diary-tags" aria-label="日記のタグ">
+   <h2 class="tags-label">タグ</h2>
+   <div v-if="draft.tags.length" class="tag-list"><span v-for="tag in draft.tags" :key="tag"># {{tag}}<button v-if="!readonly" type="button" :aria-label="`${tag}タグを削除`" @click="removeTag(tag)">×</button></span></div>
+   <button v-if="!readonly" ref="tagTrigger" type="button" class="edit-tags" aria-haspopup="dialog" @click="openTags" aria-label="タグを追加" title="タグを追加">＋</button>
+  </section>
+  <Teleport to="body">
+   <dialog v-if="!readonly" ref="tagDialog" class="tag-dialog" aria-labelledby="tag-dialog-title" @cancel.prevent="closeTags" @click="($event.target === tagDialog) && closeTags()">
+    <div class="tag-dialog-heading"><h2 id="tag-dialog-title"><AppIcon name="tag" />タグを追加</h2><button type="button" class="tag-dialog-close" aria-label="タグのダイアログを閉じる" @click="closeTags">×</button></div>
+    <p class="tag-help">タグの追加・削除は自動保存されます。</p>
+    <div class="tag-list"><span v-for="tag in draft.tags" :key="tag"># {{tag}}<button type="button" :aria-label="`${tag}タグを削除`" @click="removeTag(tag)">×</button></span></div>
+    <p v-if="!draft.tags.length" class="tag-help">タグはまだありません。</p>
+    <form class="tag-form" @submit.prevent="addTag"><label for="diary-tag-input">タグを追加</label><div><input id="diary-tag-input" v-model="tagInput" placeholder="例：旅行" @keydown.enter="($event.isComposing || $event.keyCode === 229) && $event.preventDefault()"><button type="submit" :disabled="!tagInput.trim()">追加</button></div></form>
+    <section v-if="suggestedTags.length" class="tag-suggestions" aria-label="他の日記のタグ">
+     <h3>他の日記から選ぶ</h3>
+     <div><button v-for="tag in suggestedTags" :key="tag" type="button" :aria-label="`${tag}タグを追加`" @click="selectTag(tag)"># {{tag}}</button></div>
+    </section>
+    <p v-if="saveError" class="error" role="alert">{{saveError}}</p>
+   </dialog>
+  </Teleport>
   <DiaryEnvironmentPanel :readonly="readonly" :model-value="draft.environment" :date="draft.date" @update:model-value="setEnvironment" />
   <PhotoLightbox v-if="lightbox" :photos="photos" :initial-id="lightbox" :origin="previewOrigin" @close="lightbox=''" />
  </div>
 </template>
 <style scoped>
+.tag-dialog{width:min(400px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;padding:24px;border:1px solid var(--line);border-radius:24px;background:var(--surface);color:var(--text);box-shadow:0 12px 36px rgba(31,61,50,.2)}.tag-dialog::backdrop{background:rgba(25,45,39,.4);backdrop-filter:blur(4px)}.tag-dialog h2{margin:0;font-size:1.15rem}.tag-help{font-size:.75rem;line-height:1.6;color:var(--sub)}.edit-tags{display:grid;place-items:center;flex-shrink:0;width:36px;height:36px;font-size:1.2rem;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--forest);cursor:pointer}.tag-dialog :is(input,button):focus-visible,.edit-tags:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+.tag-dialog-heading h2{display:flex;align-items:center;gap:8px}
+.tag-dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.tag-dialog-close{display:grid;place-items:center;flex-shrink:0;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--sub);font-size:1.4rem;line-height:1;cursor:pointer}
+.tag-suggestions{margin-top:20px}.tag-suggestions h3{font-size:.75rem;font-weight:500;color:var(--sub)}.tag-suggestions>div{display:flex;flex-wrap:wrap;gap:8px}.tag-suggestions button{min-height:36px;max-width:100%;overflow-wrap:anywhere;padding:6px 12px;border:1px solid var(--line);border-radius:18px;background:var(--mist);color:var(--forest);font-size:.78rem;cursor:pointer}
+.tags-label{flex-basis:100%;margin:0;font-size:.8rem;font-weight:700;color:var(--text)}
+.diary-tags{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0 24px}.diary-tags .tag-list{display:contents;margin:0}:is(.diary-tags,.tag-dialog) .tag-list>span{display:inline-flex;align-items:center;gap:6px;overflow-wrap:anywhere;max-width:100%}:is(.diary-tags,.tag-dialog) .tag-list button{display:grid;place-items:center;flex-shrink:0;width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:var(--forest);cursor:pointer;font-size:.9rem;line-height:1;padding:0}
+.tag-form label{display:block;font-size:.75rem;color:var(--sub);margin-bottom:6px}.tag-form>div{display:flex;gap:8px}.tag-form input{min-width:0;flex:1;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);font-size:16px}.tag-form button{min-height:44px;padding:8px 16px;border:1px solid var(--line);border-radius:12px;background:var(--mist);color:var(--forest);cursor:pointer}
+
 .photo-caption .read-title{margin:0;font-size:1.5rem;letter-spacing:.02em;line-height:1.65;overflow-wrap:anywhere}
 .read-tomorrow p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}
 .editor-status{display:flex;align-items:center;justify-content:space-between;gap:12px}.editor-status p{font-size:.75rem;color:var(--sub)}.diary-editor>label{display:flex;flex-direction:column;gap:8px;margin:20px 0;font-size:.8rem;font-weight:700}.diary-editor>label small{font-weight:400;color:var(--sub)}.diary-editor textarea,.diary-editor>label input{width:100%;padding:15px;border:1px solid var(--line);border-radius:18px;background:white;color:var(--text)}.diary-editor textarea:focus-visible,.diary-editor input:focus-visible{outline:2px solid var(--sage)}.photo-heading{font-size:.8rem;margin-bottom:12px}.photo-actions{margin-top:12px}.diary-editor button:disabled{opacity:.5;cursor:wait}

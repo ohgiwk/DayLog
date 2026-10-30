@@ -44,3 +44,8 @@ it('preserves a custom title when answers change', () => {
 it('updates an automatic title when answering a full question session', () => {
  expect(editAnswers(entry, { work: 'yes' }).guess).toBe('今日は仕事や勉強に取り組んだ')
 })
+
+it('preserves custom tags when answers are changed', () => {
+ const entry = { id:'custom', answers:{}, tags:['旅行'], guess:'', body:'' } as unknown as DiaryEntry
+ expect(editAnswer(entry, 'mood', '4').tags).toContain('旅行')
+})

@@ -3,8 +3,8 @@ import { createApp, nextTick, type App } from 'vue'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import DiaryEditor from './DiaryEditor.vue'
 import type { DiaryEntry } from '../types'
-const storage = vi.hoisted(() => ({ save: vi.fn(), get: vi.fn(), remove: vi.fn(), confirm: vi.fn() }))
-vi.mock('../stores/diary', () => ({ diaryScope: { userId: 'a', generation: 1 }, saveEntry: storage.save, deleteEntry: vi.fn() }))
+const storage = vi.hoisted(() => ({ save: vi.fn(), get: vi.fn(), remove: vi.fn(), confirm: vi.fn(), entries: [] as DiaryEntry[] }))
+vi.mock('../stores/diary', () => ({ diaryScope: { userId: 'a', generation: 1 }, entries: { get value() { return storage.entries } }, saveEntry: storage.save, deleteEntry: vi.fn() }))
 vi.mock('../lib/image-repository', () => ({ compressImage: vi.fn(), imageRepository: { get: storage.get, delete: storage.remove } }))
 vi.mock('../lib/delete-confirmation', () => ({ confirmDelete: storage.confirm }))
 vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn() }))
@@ -15,6 +15,9 @@ let app: App | undefined
 const initial = (imageIds = ['a', 'b', 'c'], thumbnailImageId: string | undefined = 'a'): DiaryEntry => ({ id: 'diary', date: '2026-10-26', guess: '日記', body: '本文', answers: {}, tags: [], mood: 3, condition: 3, tomorrow: '', imageIds, thumbnailImageId, createdAt: '', updatedAt: '' })
 beforeEach(() => {
  vi.resetAllMocks()
+ storage.entries = []
+ Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: vi.fn(function (this: HTMLDialogElement) { this.setAttribute('open', '') }) })
+ Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: vi.fn(function (this: HTMLDialogElement) { this.removeAttribute('open') }) })
  storage.get.mockImplementation(async (id: string) => ({ blob: new Blob([id]) }))
  storage.remove.mockResolvedValue(undefined)
  storage.confirm.mockResolvedValue(true)
@@ -106,4 +109,60 @@ it('replaces the placeholder with the real cover once photos are available', asy
  await mount(initial(), false, true)
  expect(document.querySelector('.cover-placeholder')).toBeNull()
  expect(document.querySelector('.diary-cover')).not.toBeNull()
+})
+
+it('adds and removes custom tags with durable saves and ignores duplicates', async () => {
+ await mount(initial([]))
+ document.querySelector<HTMLButtonElement>('.edit-tags')!.click()
+ await nextTick()
+ expect(document.querySelector('.tag-dialog')?.hasAttribute('open')).toBe(true)
+ const input = document.querySelector<HTMLInputElement>('#diary-tag-input')!
+ input.value = '  #旅行  '
+ input.dispatchEvent(new Event('input', { bubbles: true }))
+ await nextTick()
+ document.querySelector('.tag-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+ await nextTick()
+ expect(storage.save.mock.lastCall?.[0].tags).toEqual(['旅行'])
+ input.value = '旅行'; input.dispatchEvent(new Event('input', { bubbles: true }))
+ await nextTick()
+ document.querySelector('.tag-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+ await nextTick()
+ expect(document.querySelectorAll('.tag-dialog .tag-list>span')).toHaveLength(1)
+ const close = document.querySelector<HTMLButtonElement>('[aria-label="タグのダイアログを閉じる"]')!
+ close.click()
+ await nextTick()
+ expect(document.querySelector('.tag-dialog')?.hasAttribute('open')).toBe(false)
+ document.querySelector<HTMLButtonElement>('.diary-tags [aria-label="旅行タグを削除"]')!.click()
+ await nextTick()
+ expect(storage.save.mock.lastCall?.[0].tags).toEqual([])
+})
+
+it('offers unique tags from other diaries and saves a selected tag immediately', async () => {
+ storage.entries = [
+  { ...initial([]), id:'other', tags:['旅行','読書'] },
+  { ...initial([]), id:'another', tags:['旅行'] },
+  { ...initial([]), tags:['この日記のみ'] },
+ ]
+ await mount({ ...initial([]), tags:['読書'] })
+ document.querySelector<HTMLButtonElement>('.edit-tags')!.click()
+ await nextTick()
+ expect([...document.querySelectorAll('.tag-suggestions button')].map(button=>button.textContent)).toEqual(['# 旅行'])
+ document.querySelector<HTMLButtonElement>('[aria-label="旅行タグを追加"]')!.click()
+ await nextTick()
+ expect(storage.save.mock.lastCall?.[0].tags).toEqual(['読書','旅行'])
+ expect(document.querySelector('.tag-suggestions')).toBeNull()
+ expect(document.querySelector('.diary-tags')?.textContent).toContain('旅行')
+})
+
+it('removes tags inside the dialog and offers them again when used by another diary', async () => {
+ storage.entries = [{ ...initial([]), id:'other', tags:['旅行'] }]
+ await mount({ ...initial([]), tags:['旅行'] })
+ document.querySelector<HTMLButtonElement>('.edit-tags')!.click()
+ await nextTick()
+ document.querySelector<HTMLButtonElement>('.tag-dialog [aria-label="旅行タグを削除"]')!.click()
+ await nextTick()
+ expect(storage.save.mock.lastCall?.[0].tags).toEqual([])
+ expect(document.querySelector('.diary-tags .tag-list')).toBeNull()
+ expect(document.querySelector('.tag-dialog [aria-label="旅行タグを追加"]')).not.toBeNull()
+ expect(document.querySelector('.tag-dialog')?.hasAttribute('open')).toBe(true)
 })

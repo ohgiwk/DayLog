@@ -16,7 +16,7 @@ export function editAnswers(entry: DiaryEntry, values: Record<string, string>): 
  }
  const guess = buildGuess(answers)
  return {
-  ...entry, answers, tags: guess.tags, guess: customTitle ? entry.guess : guess.text, guessResult: undefined,
+  ...entry, answers, tags: [...new Set([...entry.tags.filter(tag => !buildGuess(entry.answers).tags.some(previous => previous === tag)), ...guess.tags])], guess: customTitle ? entry.guess : guess.text, guessResult: undefined,
   mood: (Number(answers.mood) || 3) as MoodValue,
   condition: Number(answers.condition) || 3,
  }
