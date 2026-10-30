@@ -86,7 +86,9 @@ function animateTab(event: MouseEvent) {
    <RouterView v-if="account.user || authScreen" v-slot="{ Component, route: currentRoute }">
     <div class="route-stack">
      <Transition name="page-crossfade" :duration="settings.reducedMotion ? 0 : 220">
-      <component :is="Component" :key="`${account.user?.id ?? 'guest'}:${currentRoute.fullPath}`" />
+      <div :key="`${account.user?.id ?? 'guest'}:${currentRoute.fullPath}`" class="route-page">
+       <component :is="Component" />
+      </div>
      </Transition>
     </div>
    </RouterView>
