@@ -219,7 +219,7 @@ onBeforeRouteLeave(() => !busy.value && discard())
 
 <template>
  <div class="page memos-page">
-  <header class="page-header"><p class="eyebrow">MY NOTEBOOK</p><h1>メモ</h1><p>覚えておきたいこと、心に残ったこと。</p></header>
+  <header class="page-header sticky-page-header"><p class="eyebrow">MY NOTEBOOK</p><h1>メモ</h1><p>覚えておきたいこと、心に残ったこと。</p></header>
   <p v-if="loading" role="status">読み込み中…</p>
   <p v-if="error && !dialogOpen" class="error" role="alert">{{ error }}</p>
   <template v-if="!loading && !loadFailed">
