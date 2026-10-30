@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppNotice from './AppNotice.vue'
 import AppIcon from "./AppIcon.vue"
 import DiaryEnvironmentPanel from './DiaryEnvironmentPanel.vue'
 import PhotoLightbox from './PhotoLightbox.vue'
@@ -147,8 +148,8 @@ onBeforeUnmount(() => { stopUpdatePreparation(); disposed = true; window.removeE
 </script>
 <template>
  <div class="diary-editor" :class="{ 'is-new': isNew }">
-  <div v-if="busy" class="editor-status"><p role="status">写真を保存中…</p></div>
-  <p v-if="saveError" class="error" role="alert">{{ saveError }} <button class="text-button" @click="save">再試行</button></p>
+  <AppNotice v-if="busy">写真を保存中…</AppNotice>
+  <AppNotice v-if="saveError" error>{{ saveError }} <button class="text-button" @click="save">再試行</button></AppNotice>
   <section class="diary-photos" :class="{'photos-readonly':readonly}" aria-label="今日の写真">
   <div class="photo-stage" :class="{empty:!coverUrl}">
    <button v-if="isNew && !readonly && !coverUrl" type="button" class="photo-empty cover-placeholder" aria-label="写真を追加する" :disabled="busy || draft.imageIds.length >= 10" @click="photoPicker?.click()"><AppIcon name="image" /><span class="placeholder-title">この日の景色も、一緒に。</span><span>写真を添えて、思い出を残しましょう</span></button>

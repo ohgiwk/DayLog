@@ -4,6 +4,8 @@ import { Capacitor } from '@capacitor/core'
 import { prepareEditorsForUpdate } from '../lib/update-preparation'
 import { acknowledgeAppBuild, hasUnacknowledgedUpdate, prepareAppUpdate, startUpdateChecks } from '../lib/app-update'
 
+defineProps<{ embedded?: boolean }>()
+
 const latest = ref<string | null>(null)
 const dismissed = ref<string | null>(null)
 const applied = ref(false)
@@ -46,8 +48,8 @@ async function update() {
 </script>
 
 <template>
- <Teleport to="body">
- <aside v-if="latest && latest !== dismissed" class="update-notice" aria-label="アプリの更新">
+ <Teleport to="body" :disabled="embedded">
+ <aside v-if="latest && latest !== dismissed" class="update-notice" :class="{embedded}" aria-label="アプリの更新">
   <div role="status" aria-live="polite">
    <strong>新しいバージョンが利用できます</strong>
    <p>入力内容を保存してから、新しいバージョンに更新します。</p>
@@ -58,7 +60,7 @@ async function update() {
    <button type="button" class="update-now" :disabled="updating" @click="update">{{ updating ? '更新中…' : '更新する' }}</button>
   </div>
  </aside>
- <aside v-else-if="applied" class="update-notice" aria-label="アプリの更新完了">
+ <aside v-else-if="applied" class="update-notice" :class="{embedded}" aria-label="アプリの更新完了">
   <div role="status" aria-live="polite">
    <strong>新しいバージョンに更新されました</strong>
    <p>再起動・再読み込みにより、新しいバージョンが読み込まれました。</p>
@@ -69,7 +71,8 @@ async function update() {
 </template>
 
 <style scoped>
-.update-notice { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: min(var(--app-width, 620px), 100%); max-height: 100dvh; overflow-y: auto; z-index: 150; box-shadow: 0 8px 24px rgba(31,61,50,.16); padding: calc(env(safe-area-inset-top, 0px) + 14px) 20px 14px; background: #edf4ef; color: var(--forest); border-bottom: 1px solid var(--line); }
+.update-notice { position: fixed; bottom: calc(var(--tabbar-height, 82px) + 26px); left: 50%; transform: translateX(-50%); width: min(calc(var(--app-width, 430px) - 24px), calc(100% - 24px)); max-height: 50dvh; overflow-y: auto; z-index: 150; box-shadow: 0 8px 24px rgba(31,61,50,.16); padding: 14px 16px; background: #edf4ef; color: var(--forest); border: 1px solid var(--line); border-radius: 16px; }
+.update-notice.embedded{position:static;transform:none;width:100%;max-height:none;overflow:visible;flex-shrink:0;padding:14px 16px;border:1px solid var(--line);border-radius:16px}
 .update-notice strong { font-size: .88rem; }
 .update-notice p { margin: 6px 0 10px; font-size: .76rem; line-height: 1.6; }
 .update-actions { display: flex; justify-content: flex-end; gap: 10px; }

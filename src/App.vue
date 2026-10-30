@@ -2,7 +2,7 @@
 import AppSplash from './components/AppSplash.vue'
 import AppIcon from "./components/AppIcon.vue"
 
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { authRedirect, isAuthPath } from './lib/auth-navigation'
 import { account } from './stores/account'
 import { startMemoSync, resetMemoSync, scheduleMemoSync, memoSyncState } from './lib/memo-sync'
@@ -13,6 +13,7 @@ import UpdateNotice from './components/UpdateNotice.vue'
 import { existingJournalPath } from './lib/journal-navigation'
 import { entries, saveSettings, settings } from './stores/diary'
 saveSettings()
+provide('app-notification-target', '#app-notifications')
 const route=useRoute(), router=useRouter()
 const writeTarget = computed(() => {
  const path = existingJournalPath(entries.value)
@@ -79,10 +80,14 @@ function animateTab(event: MouseEvent) {
 </script>
 <template>
  <div class="app-shell">
-  <UpdateNotice />
+  <Teleport to="body">
+   <div id="app-notifications" class="app-notifications" aria-label="アプリからのお知らせ">
+    <UpdateNotice embedded />
+    <RouterLink v-if="account.ready && !authScreen && account.user && (syncState.error || syncState.conflicts.length || memoSyncState.error || memoSyncState.conflict)" to="/settings" class="sync-notice"><span role="status">{{ (syncState.conflicts.length || memoSyncState.conflict) ? '別の端末の変更と重複しています。設定で確認' : '未同期の変更があります。設定で確認' }}</span></RouterLink>
+   </div>
+  </Teleport>
   <DeleteConfirmation />
   <main v-if="account.ready" :class="{ 'auth-main': authScreen }">
-   <RouterLink v-if="!authScreen && account.user && (syncState.error || syncState.conflicts.length || memoSyncState.error || memoSyncState.conflict)" to="/settings" class="sync-notice">{{ (syncState.conflicts.length || memoSyncState.conflict) ? '別の端末の変更と重複しています。設定で確認' : '未同期の変更があります。設定で確認' }}</RouterLink>
    <RouterView v-if="account.user || authScreen" v-slot="{ Component, route: currentRoute }">
     <div class="route-stack">
      <Transition name="page-crossfade" :duration="settings.reducedMotion ? 0 : 220">
@@ -104,5 +109,9 @@ function animateTab(event: MouseEvent) {
 
 <style scoped>
 .auth-main{padding-bottom:0}
-.sync-notice{display:block;padding:12px 22px;background:#fff2dc;color:#77551e;font-size:.78rem;line-height:1.5;text-decoration:none}
+.app-notifications{position:fixed;z-index:150;left:50%;bottom:calc(var(--tabbar-height,82px) + 26px);transform:translateX(-50%);width:min(calc(var(--app-width,430px) - 24px),calc(100% - 24px));display:flex;flex-direction:column;gap:10px;max-height:50dvh;overflow-y:auto;pointer-events:none}
+.app-notifications:empty{display:none}
+.app-notifications :deep(.update-notice),.sync-notice{pointer-events:auto}
+.sync-notice{display:block;padding:14px 16px;border:1px solid #ead6b5;border-radius:16px;box-shadow:0 4px 18px rgba(31,61,50,.14);background:#fff2dc;color:#77551e;font-size:.78rem;line-height:1.5;text-decoration:none}
+.sync-notice:focus-visible{outline:2px solid var(--forest);outline-offset:-3px}
 </style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppNotice from '../components/AppNotice.vue'
 import { registerUpdatePreparation } from '../lib/update-preparation'
 import LegacyMemoImport from '../components/LegacyMemoImport.vue'
 import { setMemoEditingCheck, scheduleMemoSync } from '../lib/memo-sync'
@@ -220,8 +221,8 @@ onBeforeRouteLeave(() => !busy.value && discard())
 <template>
  <div class="page memos-page">
   <header class="page-header sticky-page-header"><p class="eyebrow">MY NOTEBOOK</p><h1>メモ</h1><p>覚えておきたいこと、心に残ったこと。</p></header>
-  <p v-if="loading" role="status">読み込み中…</p>
-  <p v-if="error && !dialogOpen" class="error" role="alert">{{ error }}</p>
+  <AppNotice v-if="loading">読み込み中…</AppNotice>
+  <AppNotice v-if="error && !dialogOpen" error>{{ error }}</AppNotice>
   <template v-if="!loading && !loadFailed">
    <template v-if="draft">
     <div class="memo-actions"><button class="outline-button" :disabled="busy" @click="back"><AppIcon name="chevron-left" /> 一覧へ</button><button class="text-button" :disabled="busy" aria-label="メモを削除" title="メモを削除" @click="removeNote"><TrashIcon /></button></div>
