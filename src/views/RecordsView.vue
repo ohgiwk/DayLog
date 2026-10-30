@@ -140,6 +140,7 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 <template>
  <div class="page records-page">
   <header class="page-header records-header">
+   <RouterLink to="/settings" class="records-settings-link" aria-label="設定"><AppIcon name="settings" />設定</RouterLink>
    <p class="eyebrow">YOUR MOMENTS</p>
    <div class="records-heading">
     <h1>記録</h1>
@@ -182,6 +183,9 @@ function entryOn(day: Date) { return entriesByDate.value.get(dateKey(day)) }
 </template>
 
 <style scoped>
+.records-settings-link{position:absolute;top:12px;right:var(--page-right);display:flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;border-radius:14px;background:var(--surface);color:var(--forest);font-size:.8rem;text-decoration:none}
+.records-settings-link:focus-visible{outline:2px solid var(--forest);outline-offset:3px}
+
 .calendar-reveal{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 280ms cubic-bezier(.2,.7,.3,1),opacity 180ms ease}
 .calendar-reveal.open{grid-template-rows:1fr;opacity:1}
 .calendar-reveal-inner{min-height:0;overflow:hidden}

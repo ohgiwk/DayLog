@@ -5,7 +5,6 @@ import { computed, nextTick, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { baseQuestions, buildGuess, visibleActivityQuestions } from '../data/questions'
 import { entries } from '../stores/diary'
-import { dateKey } from '../lib/records-calendar'
 import { journalDate } from '../lib/journal-date'
 import type { DiaryEntry, MoodValue, QuestionNode } from '../types'
 import DiaryEditor from '../components/DiaryEditor.vue'
@@ -17,7 +16,6 @@ const switchingQuestions=ref(false)
 const editor=ref<InstanceType<typeof DiaryEditor>>()
 const route=useRoute()
 const targetDate=journalDate(route.query.date)
-const isToday=targetDate===dateKey(new Date())
 onMounted(()=>{const existing=entries.value.find(e=>e.date===targetDate);if(existing)router.replace(`/entry/${existing.id}`);else createEntry()})
 async function startQuestions(){
  if(editor.value?.busy||switchingQuestions.value)return
@@ -65,7 +63,7 @@ function skipAll(){
 }
 const stopUpdatePreparation=registerUpdatePreparation(()=>stage.value!=='questions'||!!editor.value?.applyAnswers(answers.value))
 onBeforeUnmount(stopUpdatePreparation)
-function back(){if(stage.value==='finish'){router.push(isToday?'/':'/records')}else if(step.value>0){const key=questions.value[step.value-1]?.id;const next={...answers.value};delete next[key];answers.value=next;step.value--}else finish()}
+function back(){if(stage.value==='finish'){router.push('/records')}else if(step.value>0){const key=questions.value[step.value-1]?.id;const next={...answers.value};delete next[key];answers.value=next;step.value--}else finish()}
 </script>
 <template><div ref="page" class="journal-page">
  <header class="journal-header" :class="{'photo-header':stage==='finish'}"><button class="icon-button" @click="back" aria-label="戻る"><AppIcon name="chevron-left" /></button><button v-if="stage==='questions'" class="text-button" @click="skipAll">スキップ</button></header>

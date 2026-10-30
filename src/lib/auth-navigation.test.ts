@@ -3,7 +3,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { authRedirect, loginDestination, type AuthState } from './auth-navigation'
 function setup(state: AuthState) {
  const component = { template: '<div />' }
- const router = createRouter({ history: createMemoryHistory(), routes: ['/', '/login', '/signup', '/reset-password', '/settings', '/entry/:id'].map(path => ({ path, component })) })
+ const router = createRouter({ history: createMemoryHistory(), routes: ['/', '/records', '/login', '/signup', '/reset-password', '/settings', '/entry/:id'].map(path => ({ path, component })) })
  router.beforeEach(to => authRedirect(to, state))
  return router
 }
@@ -26,7 +26,7 @@ describe('account route access', () => {
   await router.push('/login?next=/entry/diary-123')
   expect(router.currentRoute.value.path).toBe('/entry/diary-123')
   await router.push('/signup')
-  expect(router.currentRoute.value.path).toBe('/')
+  expect(router.currentRoute.value.path).toBe('/records')
  })
  it('blocks protected navigation again after logout', async () => {
   const state = { ready: true, signedIn: true, recovery: false }
@@ -44,12 +44,12 @@ describe('account route access', () => {
   await router.push('/settings')
   expect(router.currentRoute.value.path).toBe('/reset-password')
   state.recovery = false
-  expect(authRedirect(router.currentRoute.value, state)).toEqual({ path: '/', replace: true })
+  expect(authRedirect(router.currentRoute.value, state)).toEqual({ path: '/records', replace: true })
  })
  it('rejects external URLs and authentication routes as return destinations', () => {
-  for (const value of ['https://example.com', '//example.com', '/login', '/signup', '/reset-password', ['/settings']]) expect(loginDestination(value)).toBe('/')
+  for (const value of ['https://example.com', '//example.com', '/login', '/signup', '/reset-password', '/insights', '/', ['/settings']]) expect(loginDestination(value)).toBe('/records')
   expect(loginDestination('/settings')).toBe('/settings')
   expect(loginDestination('/journal?date=2026-10-16')).toBe('/journal?date=2026-10-16')
-  expect(loginDestination('/journal?date=2026-10-16&next=https://example.com')).toBe('/')
+  expect(loginDestination('/journal?date=2026-10-16&next=https://example.com')).toBe('/records')
  })
 })
