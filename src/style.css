@@ -1,14 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
 
-/* Keep the previous page opaque beneath the incoming page to avoid a blank frame. */
-.route-stack{display:grid;isolation:isolate}
+/* Fade the outgoing page before revealing the next page, including sparse lists. */
+.route-stack{display:grid;isolation:isolate;min-height:calc(100dvh - env(safe-area-inset-top,0px))}
 .route-stack>*{grid-area:1/1;min-width:0;min-height:calc(100dvh - env(safe-area-inset-top,0px));background-color:var(--paper)}
 .page-crossfade-enter-active{position:relative;z-index:1;transition:opacity 220ms ease;pointer-events:none}
 .page-crossfade-enter-from{opacity:0}
 .page-crossfade-enter-to{opacity:1}
-.page-crossfade-leave-active{position:relative;z-index:0;pointer-events:none}
-.reduce-motion .page-crossfade-enter-active{transition:none}
-@media(prefers-reduced-motion:reduce){.page-crossfade-enter-active{transition:none}}
+.page-crossfade-leave-active{position:relative;z-index:0;transition:opacity 220ms ease;pointer-events:none}
+.page-crossfade-leave-to{opacity:0}
+.reduce-motion .page-crossfade-enter-active,.reduce-motion .page-crossfade-leave-active{transition:none}
+@media(prefers-reduced-motion:reduce){.page-crossfade-enter-active,.page-crossfade-leave-active{transition:none}}
 .tabbar .write-tab{position:relative;transform:translateY(-16px);gap:5px;color:var(--forest)}
 .tabbar .write-tab span{width:56px;height:56px;flex:0 0 56px;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:var(--forest);color:white;line-height:1;box-shadow:0 9px 24px rgba(36,74,61,.25);border:0;transition:transform 180ms ease,box-shadow 180ms ease}
 .tabbar .write-tab svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
