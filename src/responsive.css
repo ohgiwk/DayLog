@@ -158,3 +158,14 @@ a {
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* Disable native link/image dragging while preserving editor text operations. */
+button,
+a,
+img {
+  -webkit-user-drag: none;
+}
+[contenteditable="true"] a,
+[contenteditable="true"] img {
+  -webkit-user-drag: auto;
+}

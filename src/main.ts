@@ -9,6 +9,14 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
  void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {})
 }
 
+// Block native dragging of app controls/photos without intercepting text editing.
+document.addEventListener('dragstart', event => {
+ const target = event.target
+ if (!(target instanceof Element)) return
+ if (target.closest('input, textarea, [contenteditable="true"]')) return
+ if (target.closest('button, a, img')) event.preventDefault()
+})
+
 // Safari can ignore viewport zoom limits; cancel its native pinch gestures too.
 function preventGestureZoom(event: Event) {
  if (event.cancelable) event.preventDefault()
