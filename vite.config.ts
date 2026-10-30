@@ -1,10 +1,11 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { offlinePlugin } from './scripts/offline-plugin'
 import { releaseDate } from './src/lib/app-version'
 const buildId = crypto.randomUUID()
 const releasedAt = releaseDate(process.env.APP_RELEASE_DATE)
 export default defineConfig({
- plugins: [vue(), {
+ plugins: [vue(), offlinePlugin(buildId), {
   name: 'app-version',
   generateBundle() {
    this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ buildId, releasedAt }) })

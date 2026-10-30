@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 import type { User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { supabase, readOfflineUser } from '../lib/supabase'
 import { setMemoScope } from '../lib/memo-repository'
 import { setImageScope } from '../lib/image-repository'
 import { switchDiaryScope } from './diary'
@@ -24,6 +24,13 @@ export async function initializeAccount() {
    catch { account.error = '端末の保存データを読み込めません。再読み込みしてください。' }
   }, 0)
  })
+ // Expired sessions may trigger network retries in getSession. Offline launch
+ // uses the existing persisted session immediately, never another account's cache.
+ if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  try { applyUser(readOfflineUser()) }
+  catch { account.error = '端末の保存データを読み込めません。再読み込みしてください。' }
+  return
+ }
  try {
   const { data, error } = await supabase.auth.getSession()
   if (error) throw error

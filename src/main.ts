@@ -4,6 +4,11 @@ import './style.css'
 import './responsive.css'
 import './theme.css'
 
+// Cache the production shell without blocking startup or auth callback handling.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+ void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {})
+}
+
 // Safari can ignore viewport zoom limits; cancel its native pinch gestures too.
 function preventGestureZoom(event: Event) {
  if (event.cancelable) event.preventDefault()

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const auth = vi.hoisted(() => ({ session: vi.fn(), subscribe: vi.fn(), diary: vi.fn(), images: vi.fn(), memos: vi.fn() }))
-vi.mock('../lib/supabase', () => ({ supabase: { auth: { getSession: auth.session, onAuthStateChange: auth.subscribe } } }))
+const auth = vi.hoisted(() => ({ session: vi.fn(), subscribe: vi.fn(), diary: vi.fn(), images: vi.fn(), memos: vi.fn(), offline: vi.fn() }))
+vi.mock('../lib/supabase', () => ({ readOfflineUser: auth.offline, supabase: { auth: { getSession: auth.session, onAuthStateChange: auth.subscribe } } }))
 vi.mock('../lib/memo-repository', () => ({ setMemoScope: auth.memos }))
 vi.mock('../lib/image-repository', () => ({ setImageScope: auth.images }))
 vi.mock('./diary', () => ({ switchDiaryScope: auth.diary }))
@@ -10,7 +10,7 @@ beforeEach(() => {
  auth.subscribe.mockImplementation(callback => { event = callback })
  auth.session.mockResolvedValue({ data: { session: { user: { id: 'a' } } }, error: null })
 })
-afterEach(() => vi.useRealTimers())
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 describe('account initialization and scopes', () => {
  it('restores all repositories before exposing a ready signed-in account', async () => {
   const { account, initializeAccount } = await import('./account')
@@ -66,4 +66,23 @@ describe('account initialization and scopes', () => {
   await vi.advanceTimersByTimeAsync(0)
   expect(account.recovery).toBe(true)
  })
+})
+
+it('launches the cached account offline without waiting for token refresh', async () => {
+ vi.stubGlobal('navigator', { onLine: false })
+ auth.offline.mockReturnValue({ id: 'cached' })
+ auth.session.mockReturnValue(new Promise(() => {}))
+ const { account, initializeAccount } = await import('./account')
+ await initializeAccount()
+ expect(account).toMatchObject({ ready: true, user: { id: 'cached' } })
+ expect(auth.diary).toHaveBeenCalledWith('cached')
+ expect(auth.session).not.toHaveBeenCalled()
+})
+it('does not select an account cache when no offline session exists', async () => {
+ vi.stubGlobal('navigator', { onLine: false })
+ auth.offline.mockReturnValue(null)
+ const { account, initializeAccount } = await import('./account')
+ await initializeAccount()
+ expect(account).toMatchObject({ ready: true, user: null })
+ expect(auth.diary).toHaveBeenCalledWith('')
 })
