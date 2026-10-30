@@ -16,7 +16,7 @@ const switchingQuestions=ref(false)
 const editor=ref<InstanceType<typeof DiaryEditor>>()
 const route=useRoute()
 const targetDate=journalDate(route.query.date)
-onMounted(()=>{const existing=entries.value.find(e=>e.date===targetDate);if(existing)router.replace(`/entry/${existing.id}`);else createEntry()})
+onMounted(()=>{const existing=entries.value.find(e=>e.date===targetDate);if(existing)router.replace({path:`/entry/${existing.id}`,query:route.query.from==='write'?{edit:'1',from:'write'}:{}});else createEntry()})
 async function startQuestions(){
  if(editor.value?.busy||switchingQuestions.value)return
  answers.value=editor.value?.getAnswers()||{}
@@ -66,7 +66,7 @@ onBeforeUnmount(stopUpdatePreparation)
 function back(){if(stage.value==='finish'){router.push('/records')}else if(step.value>0){const key=questions.value[step.value-1]?.id;const next={...answers.value};delete next[key];answers.value=next;step.value--}else finish()}
 </script>
 <template><div ref="page" class="journal-page">
- <header class="journal-header" :class="{'photo-header':stage==='finish'}"><button class="icon-button" @click="back" aria-label="戻る"><AppIcon name="chevron-left" /></button><button v-if="stage==='questions'" class="text-button" @click="skipAll">スキップ</button></header>
+ <header class="journal-header" :class="{'photo-header':stage==='finish'}"><button v-if="route.query.from !== 'write' || stage === 'questions'" class="icon-button" @click="back" aria-label="戻る"><AppIcon name="chevron-left" /></button><button v-if="stage==='questions'" class="text-button" @click="skipAll">スキップ</button></header>
  <Transition name="question" mode="out-in">
   <section v-if="stage==='questions'&&current" :key="current.id" class="question-pane"><div><p class="eyebrow">{{current.eyebrow||'今日を、もう少しだけ'}}</p><h1>{{current.prompt}}</h1><p class="question-help">考えすぎなくても大丈夫。近いものを選んでください。</p></div><div class="answer-grid" :class="{moods:current.id==='mood'}"><button v-for="o in current.options" :key="o.value" @click="answer(o.value)"><span v-if="o.icon"><AppIcon :name="o.icon" /></span>{{o.label}}<b><AppIcon name="chevron-right" /></b></button></div></section>
 

@@ -14,7 +14,7 @@ export const router=createRouter({history:createWebHashHistory(import.meta.env.B
  scrollBehavior: () => ({ left: 0, top: 0, behavior: 'instant' }),
  routes:[
  {path:'/login',component:AuthView},{path:'/signup',component:AuthView},{path:'/reset-password',component:AuthView},
- {path:'/memos',component:MemosView},{path:'/',redirect:'/records'},{path:'/journal',component:JournalView,beforeEnter:to=>{const path=existingJournalPath(entries.value,to.query.date);return path?{path,replace:true}:undefined}},{path:'/records',component:RecordsView},{path:'/entry/:id',component:DetailView},{path:'/insights',redirect:'/records'},{path:'/settings',component:SettingsView}
+ {path:'/memos',component:MemosView},{path:'/',redirect:'/records'},{path:'/journal',component:JournalView,beforeEnter:to=>{const path=existingJournalPath(entries.value,to.query.date);return path?{path,replace:true,query:to.query.from==='write'?{edit:'1',from:'write'}:{}}:undefined}},{path:'/records',component:RecordsView},{path:'/entry/:id',component:DetailView},{path:'/insights',redirect:'/records'},{path:'/settings',component:SettingsView}
 ]})
 
 router.beforeEach(to => authRedirect(to, { ready: account.ready, signedIn: !!account.user, recovery: account.recovery }))

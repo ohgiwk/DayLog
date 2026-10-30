@@ -17,7 +17,7 @@ provide('app-notification-target', '#app-notifications')
 const route=useRoute(), router=useRouter()
 const writeTarget = computed(() => {
  const path = existingJournalPath(entries.value)
- return path ? { path, query: { edit: '1' } } : '/journal'
+ return path ? { path, query: { edit: '1', from: 'write' } } : { path: '/journal', query: { from: 'write' } }
 })
 const authScreen = computed(() => isAuthPath(route.path))
 setEditingCheck(() => route.path === '/journal' || route.path.startsWith('/entry/'))
@@ -99,7 +99,7 @@ function animateTab(event: MouseEvent) {
    </RouterView>
   </main>
   <AppSplash v-else :error="account.error" />
-  <nav v-if="account.ready && account.user && !authScreen && route.path!='/journal'" class="tabbar" :style="tabKeyboardOffset ? {transform:`translate(-50%, ${tabKeyboardOffset}px)`} : undefined" aria-label="メインメニュー" @click="animateTab">
+  <nav v-if="account.ready && account.user && !authScreen" class="tabbar" :style="tabKeyboardOffset ? {transform:`translate(-50%, ${tabKeyboardOffset}px)`} : undefined" aria-label="メインメニュー" @click="animateTab">
    <RouterLink to="/records" aria-label="記録"><span><AppIcon name="records" /></span><small>記録</small></RouterLink>
    <RouterLink :to="writeTarget" class="write-tab" aria-label="日記を書く"><span><AppIcon name="notebook-pen" /></span><small>日記を書く</small></RouterLink>
    <RouterLink to="/memos" aria-label="メモ"><span><AppIcon name="note" /></span><small>メモ</small></RouterLink>
