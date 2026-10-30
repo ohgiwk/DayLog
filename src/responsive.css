@@ -150,3 +150,11 @@ textarea,
 .app-shell:has(.journal-page .photo-stage .diary-cover)::before {
   background: transparent;
 }
+
+/* Suppress iOS long-press link previews and callouts on app controls. */
+button,
+a {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
