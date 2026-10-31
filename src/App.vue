@@ -1,117 +1,262 @@
 <script setup lang="ts">
-import AppSplash from './components/AppSplash.vue'
-import AppIcon from "./components/AppIcon.vue"
+import AppSplash from './components/AppSplash.vue';
+import AppIcon from './components/AppIcon.vue';
 
-import { computed, onMounted, onBeforeUnmount, provide, ref, watch } from 'vue'
-import { authRedirect, isAuthPath } from './lib/auth-navigation'
-import { account } from './stores/account'
-import { startMemoSync, resetMemoSync, scheduleMemoSync, memoSyncState } from './lib/memo-sync'
-import { scheduleSync, setEditingCheck, startSync, syncState } from './lib/diary-sync'
-import { RouterView, useRoute, useRouter } from 'vue-router'
-import DeleteConfirmation from './components/DeleteConfirmation.vue'
-import UpdateNotice from './components/UpdateNotice.vue'
-import { existingJournalPath } from './lib/journal-navigation'
-import { entries, saveSettings, settings } from './stores/diary'
-saveSettings()
-provide('app-notification-target', '#app-notifications')
-const route=useRoute(), router=useRouter()
+import { computed, onMounted, onBeforeUnmount, provide, ref, watch } from 'vue';
+import { authRedirect, isAuthPath } from './lib/auth-navigation';
+import { account } from './stores/account';
+import {
+  startMemoSync,
+  resetMemoSync,
+  scheduleMemoSync,
+  memoSyncState,
+} from './lib/memo-sync';
+import {
+  scheduleSync,
+  setEditingCheck,
+  startSync,
+  syncState,
+} from './lib/diary-sync';
+import { RouterView, useRoute, useRouter } from 'vue-router';
+import DeleteConfirmation from './components/DeleteConfirmation.vue';
+import UpdateNotice from './components/UpdateNotice.vue';
+import { existingJournalPath } from './lib/journal-navigation';
+import { entries, saveSettings, settings } from './stores/diary';
+saveSettings();
+provide('app-notification-target', '#app-notifications');
+const route = useRoute(),
+  router = useRouter();
 const writeTarget = computed(() => {
- const path = existingJournalPath(entries.value)
- return path ? { path, query: { edit: '1', from: 'write' } } : { path: '/journal', query: { from: 'write' } }
-})
-const authScreen = computed(() => isAuthPath(route.path))
-setEditingCheck(() => route.path === '/journal' || route.path.startsWith('/entry/'))
-startSync()
-startMemoSync()
-watch(() => account.user?.id, () => { syncState.error = ''; syncState.lastSynced = ''; scheduleSync(); resetMemoSync() })
-watch(() => route.path, () => { scheduleSync(); scheduleMemoSync() })
-watch(() => [account.ready, account.user?.id, account.recovery], () => {
- const target = authRedirect(route, { ready: account.ready, signedIn: !!account.user, recovery: account.recovery })
- if (target) void router.replace(target)
-}, { immediate: true })
+  const path = existingJournalPath(entries.value);
+  return path
+    ? { path, query: { edit: '1', from: 'write' } }
+    : { path: '/journal', query: { from: 'write' } };
+});
+const authScreen = computed(() => isAuthPath(route.path));
+setEditingCheck(
+  () => route.path === '/journal' || route.path.startsWith('/entry/'),
+);
+startSync();
+startMemoSync();
+watch(
+  () => account.user?.id,
+  () => {
+    syncState.error = '';
+    syncState.lastSynced = '';
+    scheduleSync();
+    resetMemoSync();
+  },
+);
+watch(
+  () => route.path,
+  () => {
+    scheduleSync();
+    scheduleMemoSync();
+  },
+);
+watch(
+  () => [account.ready, account.user?.id, account.recovery],
+  () => {
+    const target = authRedirect(route, {
+      ready: account.ready,
+      signedIn: !!account.user,
+      recovery: account.recovery,
+    });
+    if (target) void router.replace(target);
+  },
+  { immediate: true },
+);
 // Keep the navigation at its pre-keyboard position while writing a diary.
-const tabKeyboardOffset = ref(0)
-let restingViewportBottom = 0
-let editingInput = false
+const tabKeyboardOffset = ref(0);
+let restingViewportBottom = 0;
+let editingInput = false;
 function viewportBottom() {
- const viewport = window.visualViewport
- return viewport ? viewport.height + viewport.offsetTop : window.innerHeight
+  const viewport = window.visualViewport;
+  return viewport ? viewport.height + viewport.offsetTop : window.innerHeight;
 }
 function updateTabPosition() {
- const active = document.activeElement
- const diaryInput = active instanceof HTMLElement && !!active.closest('.diary-editor') &&
-  (active.matches('input:not([type="file"]), textarea') || active.isContentEditable)
- if (diaryInput && !editingInput) restingViewportBottom = Math.max(window.innerHeight, viewportBottom())
- editingInput = diaryInput
- const displacement = restingViewportBottom - viewportBottom()
- tabKeyboardOffset.value = editingInput && displacement > 100 ? displacement : 0
- if (!editingInput) restingViewportBottom = viewportBottom()
+  const active = document.activeElement;
+  const diaryInput =
+    active instanceof HTMLElement &&
+    !!active.closest('.diary-editor') &&
+    (active.matches('input:not([type="file"]), textarea') ||
+      active.isContentEditable);
+  if (diaryInput && !editingInput)
+    restingViewportBottom = Math.max(window.innerHeight, viewportBottom());
+  editingInput = diaryInput;
+  const displacement = restingViewportBottom - viewportBottom();
+  tabKeyboardOffset.value =
+    editingInput && displacement > 100 ? displacement : 0;
+  if (!editingInput) restingViewportBottom = viewportBottom();
 }
 onMounted(() => {
- restingViewportBottom = viewportBottom()
- document.addEventListener('focusin', updateTabPosition)
- document.addEventListener('focusout', updateTabPosition)
- window.addEventListener('resize', updateTabPosition)
- window.visualViewport?.addEventListener('resize', updateTabPosition)
- window.visualViewport?.addEventListener('scroll', updateTabPosition)
-})
+  restingViewportBottom = viewportBottom();
+  document.addEventListener('focusin', updateTabPosition);
+  document.addEventListener('focusout', updateTabPosition);
+  window.addEventListener('resize', updateTabPosition);
+  window.visualViewport?.addEventListener('resize', updateTabPosition);
+  window.visualViewport?.addEventListener('scroll', updateTabPosition);
+});
 onBeforeUnmount(() => {
- document.removeEventListener('focusin', updateTabPosition)
- document.removeEventListener('focusout', updateTabPosition)
- window.removeEventListener('resize', updateTabPosition)
- window.visualViewport?.removeEventListener('resize', updateTabPosition)
- window.visualViewport?.removeEventListener('scroll', updateTabPosition)
-})
-watch(() => route.path, () => { editingInput = false; tabKeyboardOffset.value = 0 })
+  document.removeEventListener('focusin', updateTabPosition);
+  document.removeEventListener('focusout', updateTabPosition);
+  window.removeEventListener('resize', updateTabPosition);
+  window.visualViewport?.removeEventListener('resize', updateTabPosition);
+  window.visualViewport?.removeEventListener('scroll', updateTabPosition);
+});
+watch(
+  () => route.path,
+  () => {
+    editingInput = false;
+    tabKeyboardOffset.value = 0;
+  },
+);
 function animateTab(event: MouseEvent) {
- if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return
- if (settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
- const target = event.target instanceof Element ? event.target.closest('a') : null
- const icon = target?.querySelector('svg')
- if (!icon) return
- icon.getAnimations().forEach(animation => animation.cancel())
- icon.animate([
-  { transform: 'translateY(0) scale(.75)' },
-  { transform: 'translateY(-6px) scale(1.22)', offset: .4 },
-  { transform: 'translateY(1px) scale(.96)', offset: .75 },
-  { transform: 'translateY(0) scale(1)' },
- ], { duration: 440, easing: 'cubic-bezier(.2,.7,.3,1)' })
+  if (
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    event.altKey ||
+    event.button !== 0
+  )
+    return;
+  if (
+    settings.reducedMotion ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+    return;
+  const target =
+    event.target instanceof Element ? event.target.closest('a') : null;
+  const icon = target?.querySelector('svg');
+  if (!icon) return;
+  icon.getAnimations().forEach((animation) => animation.cancel());
+  icon.animate(
+    [
+      { transform: 'translateY(0) scale(.75)' },
+      { transform: 'translateY(-6px) scale(1.22)', offset: 0.4 },
+      { transform: 'translateY(1px) scale(.96)', offset: 0.75 },
+      { transform: 'translateY(0) scale(1)' },
+    ],
+    { duration: 440, easing: 'cubic-bezier(.2,.7,.3,1)' },
+  );
 }
 </script>
 <template>
- <div class="app-shell">
-  <Teleport to="body">
-   <div id="app-notifications" class="app-notifications" aria-label="アプリからのお知らせ">
-    <UpdateNotice embedded />
-    <RouterLink v-if="account.ready && !authScreen && account.user && (syncState.error || syncState.conflicts.length || memoSyncState.error || memoSyncState.conflict)" to="/settings" class="sync-notice"><span role="status">{{ (syncState.conflicts.length || memoSyncState.conflict) ? '別の端末の変更と重複しています。設定で確認' : '未同期の変更があります。設定で確認' }}</span></RouterLink>
-   </div>
-  </Teleport>
-  <DeleteConfirmation />
-  <main v-if="account.ready" :class="{ 'auth-main': authScreen }">
-   <RouterView v-if="account.user || authScreen" v-slot="{ Component, route: currentRoute }">
-    <div class="route-stack">
-     <Transition name="page-crossfade" mode="out-in" :duration="settings.reducedMotion ? 0 : 220">
-      <div :key="`${account.user?.id ?? 'guest'}:${currentRoute.fullPath}`" class="route-page">
-       <component :is="Component" />
+  <div class="app-shell">
+    <Teleport to="body">
+      <div
+        id="app-notifications"
+        class="app-notifications"
+        aria-label="アプリからのお知らせ"
+      >
+        <UpdateNotice embedded />
+        <RouterLink
+          v-if="
+            account.ready &&
+            !authScreen &&
+            account.user &&
+            (syncState.error ||
+              syncState.conflicts.length ||
+              memoSyncState.error ||
+              memoSyncState.conflict)
+          "
+          to="/settings"
+          class="sync-notice"
+          ><span role="status">{{
+            syncState.conflicts.length || memoSyncState.conflict
+              ? '別の端末の変更と重複しています。設定で確認'
+              : '未同期の変更があります。設定で確認'
+          }}</span></RouterLink
+        >
       </div>
-     </Transition>
-    </div>
-   </RouterView>
-  </main>
-  <AppSplash v-else :error="account.error" />
-  <nav v-if="account.ready && account.user && !authScreen" class="tabbar" :style="tabKeyboardOffset ? {transform:`translate(-50%, ${tabKeyboardOffset}px)`} : undefined" aria-label="メインメニュー" @click="animateTab">
-   <RouterLink to="/records" aria-label="記録"><span><AppIcon name="records" /></span><small>記録</small></RouterLink>
-   <RouterLink :to="writeTarget" class="write-tab" aria-label="日記を書く"><span><AppIcon name="notebook-pen" /></span><small>日記を書く</small></RouterLink>
-   <RouterLink to="/memos" aria-label="メモ"><span><AppIcon name="note" /></span><small>メモ</small></RouterLink>
-  </nav>
- </div>
+    </Teleport>
+    <DeleteConfirmation />
+    <main v-if="account.ready" :class="{ 'auth-main': authScreen }">
+      <RouterView
+        v-if="account.user || authScreen"
+        v-slot="{ Component, route: currentRoute }"
+      >
+        <div class="route-stack">
+          <Transition
+            name="page-crossfade"
+            mode="out-in"
+            :duration="settings.reducedMotion ? 0 : 220"
+          >
+            <div
+              :key="`${account.user?.id ?? 'guest'}:${currentRoute.fullPath}`"
+              class="route-page"
+            >
+              <component :is="Component" />
+            </div>
+          </Transition>
+        </div>
+      </RouterView>
+    </main>
+    <AppSplash v-else :error="account.error" />
+    <nav
+      v-if="account.ready && account.user && !authScreen"
+      class="tabbar"
+      :style="
+        tabKeyboardOffset
+          ? { transform: `translate(-50%, ${tabKeyboardOffset}px)` }
+          : undefined
+      "
+      aria-label="メインメニュー"
+      @click="animateTab"
+    >
+      <RouterLink to="/records" aria-label="記録"
+        ><span><AppIcon name="records" /></span><small>記録</small></RouterLink
+      >
+      <RouterLink :to="writeTarget" class="write-tab" aria-label="日記を書く"
+        ><span><AppIcon name="notebook-pen" /></span
+        ><small>日記を書く</small></RouterLink
+      >
+      <RouterLink to="/memos" aria-label="メモ"
+        ><span><AppIcon name="note" /></span><small>メモ</small></RouterLink
+      >
+    </nav>
+  </div>
 </template>
 
 <style scoped>
-.auth-main{padding-bottom:0}
-.app-notifications{position:fixed;z-index:150;left:50%;bottom:calc(var(--tabbar-height,82px) + 26px);transform:translateX(-50%);width:min(calc(var(--app-width,430px) - 24px),calc(100% - 24px));display:flex;flex-direction:column;gap:10px;max-height:50dvh;overflow-y:auto;pointer-events:none}
-.app-notifications:empty{display:none}
-.app-notifications :deep(.update-notice),.sync-notice{pointer-events:auto}
-.sync-notice{display:block;padding:14px 16px;border:1px solid #ead6b5;border-radius:16px;box-shadow:0 4px 18px rgba(31,61,50,.14);background:#fff2dc;color:#77551e;font-size:.78rem;line-height:1.5;text-decoration:none}
-.sync-notice:focus-visible{outline:2px solid var(--forest);outline-offset:-3px}
+.auth-main {
+  padding-bottom: 0;
+}
+.app-notifications {
+  position: fixed;
+  z-index: 150;
+  left: 50%;
+  bottom: calc(var(--tabbar-height, 82px) + 26px);
+  transform: translateX(-50%);
+  width: min(calc(var(--app-width, 430px) - 24px), calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 50dvh;
+  overflow-y: auto;
+  pointer-events: none;
+}
+.app-notifications:empty {
+  display: none;
+}
+.app-notifications :deep(.update-notice),
+.sync-notice {
+  pointer-events: auto;
+}
+.sync-notice {
+  display: block;
+  padding: 14px 16px;
+  border: 1px solid #ead6b5;
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(31, 61, 50, 0.14);
+  background: #fff2dc;
+  color: #77551e;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  text-decoration: none;
+}
+.sync-notice:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: -3px;
+}
 </style>

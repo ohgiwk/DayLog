@@ -1,88 +1,115 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const auth = vi.hoisted(() => ({ session: vi.fn(), subscribe: vi.fn(), diary: vi.fn(), images: vi.fn(), memos: vi.fn(), offline: vi.fn() }))
-vi.mock('../lib/supabase', () => ({ readOfflineUser: auth.offline, supabase: { auth: { getSession: auth.session, onAuthStateChange: auth.subscribe } } }))
+const auth = vi.hoisted(() => ({
+  session: vi.fn(),
+  subscribe: vi.fn(),
+  diary: vi.fn(),
+  images: vi.fn(),
+  memos: vi.fn(),
+  offline: vi.fn(),
+}))
+vi.mock('../lib/supabase', () => ({
+  readOfflineUser: auth.offline,
+  supabase: {
+    auth: { getSession: auth.session, onAuthStateChange: auth.subscribe },
+  },
+}))
 vi.mock('../lib/memo-repository', () => ({ setMemoScope: auth.memos }))
 vi.mock('../lib/image-repository', () => ({ setImageScope: auth.images }))
 vi.mock('./diary', () => ({ switchDiaryScope: auth.diary }))
 let event: (name: string, session: { user: { id: string } } | null) => void
 beforeEach(() => {
- vi.resetModules(); vi.resetAllMocks(); vi.useFakeTimers()
- auth.subscribe.mockImplementation(callback => { event = callback })
- auth.session.mockResolvedValue({ data: { session: { user: { id: 'a' } } }, error: null })
+  vi.resetModules()
+  vi.resetAllMocks()
+  vi.useFakeTimers()
+  auth.subscribe.mockImplementation((callback) => {
+    event = callback
+  })
+  auth.session.mockResolvedValue({
+    data: { session: { user: { id: 'a' } } },
+    error: null,
+  })
 })
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 describe('account initialization and scopes', () => {
- it('restores all repositories before exposing a ready signed-in account', async () => {
-  const { account, initializeAccount } = await import('./account')
-  expect(account.ready).toBe(false)
-  await initializeAccount()
-  expect(account).toMatchObject({ ready: true, user: { id: 'a' }, error: '' })
-  expect(auth.diary).toHaveBeenCalledWith('a')
-  expect(auth.images).toHaveBeenCalledWith('a')
-  expect(auth.memos).toHaveBeenCalledWith('a')
- })
- it('defers auth events outside the auth lock and changes scopes on sign out', async () => {
-  const { account, initializeAccount } = await import('./account')
-  await initializeAccount()
-  event('SIGNED_OUT', null)
-  expect(account.user?.id).toBe('a')
-  await vi.advanceTimersByTimeAsync(0)
-  expect(account.user).toBeNull()
-  expect(auth.diary).toHaveBeenLastCalledWith('')
-  expect(auth.images).toHaveBeenLastCalledWith('')
-  expect(auth.memos).toHaveBeenLastCalledWith('')
- })
- it('does not reload the diary cache for token refreshes of the same account', async () => {
-  const { initializeAccount } = await import('./account')
-  await initializeAccount()
-  event('TOKEN_REFRESHED', { user: { id: 'a' } })
-  await vi.advanceTimersByTimeAsync(0)
-  expect(auth.diary).toHaveBeenCalledOnce()
-  expect(auth.images).toHaveBeenCalledOnce()
-  expect(auth.memos).toHaveBeenCalledOnce()
- })
- it('fails closed without exposing guest data when session recovery fails', async () => {
-  auth.session.mockResolvedValue({ data: { session: null }, error: new Error('offline') })
-  const { account, initializeAccount } = await import('./account')
-  await initializeAccount()
-  expect(account.ready).toBe(false)
-  expect(account.user).toBeNull()
-  expect(account.error).toContain('ログイン状態を確認できません')
-  expect(auth.diary).not.toHaveBeenCalled()
- })
- it('does not expose an account whose durable cache failed to load', async () => {
-  auth.diary.mockImplementation(() => { throw new Error('corrupted cache') })
-  const { account, initializeAccount } = await import('./account')
-  await initializeAccount()
-  expect(account.ready).toBe(false)
-  expect(account.user).toBeNull()
-  expect(auth.images).not.toHaveBeenCalled()
-  expect(auth.memos).not.toHaveBeenCalled()
- })
- it('enables password recovery mode when the recovery callback arrives', async () => {
-  const { account, initializeAccount } = await import('./account')
-  await initializeAccount()
-  event('PASSWORD_RECOVERY', { user: { id: 'a' } })
-  await vi.advanceTimersByTimeAsync(0)
-  expect(account.recovery).toBe(true)
- })
+  it('restores all repositories before exposing a ready signed-in account', async () => {
+    const { account, initializeAccount } = await import('./account')
+    expect(account.ready).toBe(false)
+    await initializeAccount()
+    expect(account).toMatchObject({ ready: true, user: { id: 'a' }, error: '' })
+    expect(auth.diary).toHaveBeenCalledWith('a')
+    expect(auth.images).toHaveBeenCalledWith('a')
+    expect(auth.memos).toHaveBeenCalledWith('a')
+  })
+  it('defers auth events outside the auth lock and changes scopes on sign out', async () => {
+    const { account, initializeAccount } = await import('./account')
+    await initializeAccount()
+    event('SIGNED_OUT', null)
+    expect(account.user?.id).toBe('a')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(account.user).toBeNull()
+    expect(auth.diary).toHaveBeenLastCalledWith('')
+    expect(auth.images).toHaveBeenLastCalledWith('')
+    expect(auth.memos).toHaveBeenLastCalledWith('')
+  })
+  it('does not reload the diary cache for token refreshes of the same account', async () => {
+    const { initializeAccount } = await import('./account')
+    await initializeAccount()
+    event('TOKEN_REFRESHED', { user: { id: 'a' } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(auth.diary).toHaveBeenCalledOnce()
+    expect(auth.images).toHaveBeenCalledOnce()
+    expect(auth.memos).toHaveBeenCalledOnce()
+  })
+  it('fails closed without exposing guest data when session recovery fails', async () => {
+    auth.session.mockResolvedValue({
+      data: { session: null },
+      error: new Error('offline'),
+    })
+    const { account, initializeAccount } = await import('./account')
+    await initializeAccount()
+    expect(account.ready).toBe(false)
+    expect(account.user).toBeNull()
+    expect(account.error).toContain('ログイン状態を確認できません')
+    expect(auth.diary).not.toHaveBeenCalled()
+  })
+  it('does not expose an account whose durable cache failed to load', async () => {
+    auth.diary.mockImplementation(() => {
+      throw new Error('corrupted cache')
+    })
+    const { account, initializeAccount } = await import('./account')
+    await initializeAccount()
+    expect(account.ready).toBe(false)
+    expect(account.user).toBeNull()
+    expect(auth.images).not.toHaveBeenCalled()
+    expect(auth.memos).not.toHaveBeenCalled()
+  })
+  it('enables password recovery mode when the recovery callback arrives', async () => {
+    const { account, initializeAccount } = await import('./account')
+    await initializeAccount()
+    event('PASSWORD_RECOVERY', { user: { id: 'a' } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(account.recovery).toBe(true)
+  })
 })
 
 it('launches the cached account offline without waiting for token refresh', async () => {
- vi.stubGlobal('navigator', { onLine: false })
- auth.offline.mockReturnValue({ id: 'cached' })
- auth.session.mockReturnValue(new Promise(() => {}))
- const { account, initializeAccount } = await import('./account')
- await initializeAccount()
- expect(account).toMatchObject({ ready: true, user: { id: 'cached' } })
- expect(auth.diary).toHaveBeenCalledWith('cached')
- expect(auth.session).not.toHaveBeenCalled()
+  vi.stubGlobal('navigator', { onLine: false })
+  auth.offline.mockReturnValue({ id: 'cached' })
+  auth.session.mockReturnValue(new Promise(() => {}))
+  const { account, initializeAccount } = await import('./account')
+  await initializeAccount()
+  expect(account).toMatchObject({ ready: true, user: { id: 'cached' } })
+  expect(auth.diary).toHaveBeenCalledWith('cached')
+  expect(auth.session).not.toHaveBeenCalled()
 })
 it('does not select an account cache when no offline session exists', async () => {
- vi.stubGlobal('navigator', { onLine: false })
- auth.offline.mockReturnValue(null)
- const { account, initializeAccount } = await import('./account')
- await initializeAccount()
- expect(account).toMatchObject({ ready: true, user: null })
- expect(auth.diary).toHaveBeenCalledWith('')
+  vi.stubGlobal('navigator', { onLine: false })
+  auth.offline.mockReturnValue(null)
+  const { account, initializeAccount } = await import('./account')
+  await initializeAccount()
+  expect(account).toMatchObject({ ready: true, user: null })
+  expect(auth.diary).toHaveBeenCalledWith('')
 })

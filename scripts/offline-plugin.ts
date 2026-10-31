@@ -2,11 +2,17 @@ import type { Plugin } from 'vite'
 
 // Precache every emitted chunk, including routes that have never been opened.
 export function offlinePlugin(buildId: string): Plugin {
- return {
-  name: 'offline-shell',
-  generateBundle(_, bundle) {
-   const files = ['index.html', ...Object.keys(bundle).filter(name => name !== 'version.json')]
-   this.emitFile({ type: 'asset', fileName: 'sw.js', source: `
+  return {
+    name: 'offline-shell',
+    generateBundle(_, bundle) {
+      const files = [
+        'index.html',
+        ...Object.keys(bundle).filter((name) => name !== 'version.json'),
+      ]
+      this.emitFile({
+        type: 'asset',
+        fileName: 'sw.js',
+        source: `
 const CACHE = ${JSON.stringify(`daylog-shell-${buildId}`)};
 const FILES = ${JSON.stringify(files)};
 const ROOT = new URL('./', self.location.href);
@@ -39,7 +45,8 @@ self.addEventListener('fetch', event => {
  event.respondWith(caches.open(CACHE).then(cache => cache.match(new URL(path, ROOT).href))
   .then(cached => cached || fetch(event.request)));
 });
-` })
-  },
- }
+`,
+      })
+    },
+  }
 }

@@ -33,7 +33,10 @@ body {
   max-width: var(--app-width);
   padding-top: env(safe-area-inset-top, 0px);
   /* This padding scrolls with the page; match the fixed status-bar overlay. */
-  background: linear-gradient(var(--status-bar), var(--status-bar)) top / 100% env(safe-area-inset-top, 0px) no-repeat, var(--paper);
+  background:
+    linear-gradient(var(--status-bar), var(--status-bar)) top / 100%
+      env(safe-area-inset-top, 0px) no-repeat,
+    var(--paper);
 }
 
 main {
@@ -73,8 +76,14 @@ main {
   }
 }
 
-.tabbar { padding-left: max(6px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
-.tabbar a { min-width: 0; flex: 1; }
+.tabbar {
+  padding-left: max(6px, env(safe-area-inset-left, 0px));
+  padding-right: max(6px, env(safe-area-inset-right, 0px));
+}
+.tabbar a {
+  min-width: 0;
+  flex: 1;
+}
 
 /* Keep edge-to-edge backgrounds while protecting controls beside the notch. */
 .page,
@@ -103,11 +112,23 @@ main {
 .app-shell > main {
   min-height: calc(100dvh - env(safe-area-inset-top, 0px));
 }
-@media (max-width: 767px), (display-mode: standalone), (display-mode: fullscreen) {
-  :root { --app-width: 100%; }
-  body { padding: 0; }
-  .app-shell { border-radius: 0; box-shadow: none; }
-  .tabbar { bottom: 0; border-radius: 0; }
+@media (max-width: 767px),
+  (display-mode: standalone),
+  (display-mode: fullscreen) {
+  :root {
+    --app-width: 100%;
+  }
+  body {
+    padding: 0;
+  }
+  .app-shell {
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .tabbar {
+    bottom: 0;
+    border-radius: 0;
+  }
 }
 
 /* Hide scrollbars without disabling scrolling on pages or nested panels. */
@@ -139,8 +160,8 @@ main {
 
 input,
 textarea,
-[contenteditable="true"],
-[contenteditable="true"] * {
+[contenteditable='true'],
+[contenteditable='true'] * {
   -webkit-user-select: text;
   user-select: text;
 }
@@ -165,7 +186,7 @@ a,
 img {
   -webkit-user-drag: none;
 }
-[contenteditable="true"] a,
-[contenteditable="true"] img {
+[contenteditable='true'] a,
+[contenteditable='true'] img {
   -webkit-user-drag: auto;
 }

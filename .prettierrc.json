@@ -1,0 +1,6 @@
+{
+  "semi": false,
+  "singleQuote": true,
+  "htmlWhitespaceSensitivity": "strict",
+  "overrides": [{ "files": "*.vue", "options": { "semi": true } }]
+}
