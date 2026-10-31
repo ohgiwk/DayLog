@@ -1,4 +1,4 @@
-export interface StoreSchema {
+interface StoreSchema {
   name: string
   store: string
   keyPath?: string

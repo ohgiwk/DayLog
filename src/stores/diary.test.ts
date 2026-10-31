@@ -172,16 +172,7 @@ describe('account storage isolation', () => {
   })
 })
 
-describe('local calendar date and startup settings', () => {
-  afterEach(() => vi.useRealTimers())
-  it('selects today by the local date, including shortly after midnight', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 9, 26, 0, 30))
-    const store = await import('./diary')
-    store.saveEntry({ ...entry('昨日'), id: 'yesterday', date: '2026-10-25' })
-    store.saveEntry({ ...entry('今日'), id: 'today', date: '2026-10-26' })
-    expect(store.todaysEntry.value?.body).toBe('今日')
-  })
+describe('startup settings', () => {
   it('loads diaries even if stored display settings contain invalid JSON', async () => {
     data.set('daylog:v1:entries', JSON.stringify([entry('保存済み')]))
     data.set('daylog:v1:settings', '{broken')

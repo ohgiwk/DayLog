@@ -91,8 +91,7 @@ const folderName = ref(''),
   targetFolder = ref('');
 const createKind = ref<'folder' | 'note' | 'rename'>('folder');
 const createDialog = ref<HTMLDialogElement>(),
-  nameInput = ref<HTMLInputElement>(),
-  fab = ref<HTMLButtonElement>();
+  nameInput = ref<HTMLInputElement>();
 const dialogOpen = ref(false);
 const formatMenuOpen = ref(false);
 const formatMenu = ref<HTMLElement>(),
@@ -776,7 +775,6 @@ onBeforeRouteLeave(() => !busy.value && discard());
           ></template
         >
         <button
-          ref="fab"
           class="memo-fab"
           type="button"
           aria-label="フォルダ・メモを新規作成"

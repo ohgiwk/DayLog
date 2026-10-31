@@ -3,7 +3,7 @@ export interface AuthState {
   signedIn: boolean
   recovery: boolean
 }
-export interface AuthLocation {
+interface AuthLocation {
   path: string
   fullPath: string
   query: Record<string, unknown>

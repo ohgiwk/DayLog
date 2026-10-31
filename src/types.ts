@@ -42,7 +42,7 @@ export interface DiaryImage {
   type: string
   createdAt: string
 }
-export interface QuestionOption {
+interface QuestionOption {
   label: string
   value: string
   icon?: string
@@ -54,10 +54,6 @@ export interface QuestionNode {
   eyebrow?: string
   options: QuestionOption[]
   when?: (answers: Record<string, string>) => boolean
-}
-export interface BranchCondition {
-  questionId: string
-  equals: string
 }
 export interface GuessResult {
   text: string

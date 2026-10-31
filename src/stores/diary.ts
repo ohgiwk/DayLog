@@ -8,7 +8,6 @@ import {
   type DiarySnapshot,
 } from '../lib/sync-model'
 import { loadSettings, settingsKey } from '../lib/app-settings'
-import { dateKey } from '../lib/records-calendar'
 const KEY = 'daylog:v1:entries'
 export const diaryScope = reactive({ userId: '', generation: 0 })
 let onChange = () => {}
@@ -40,7 +39,6 @@ export function switchDiaryScope(id: string) {
 export function guestEntries() {
   return load()
 }
-const today = () => dateKey(new Date())
 function load(): DiaryEntry[] {
   let stored: DiaryEntry[]
   try {
@@ -65,9 +63,6 @@ export const diaryState = reactive({ entries: load() as DiaryEntry[] })
 export const settings = reactive(loadSettings())
 export const entries = computed(() =>
   [...diaryState.entries].sort((a, b) => b.date.localeCompare(a.date)),
-)
-export const todaysEntry = computed(() =>
-  diaryState.entries.find((e) => e.date === today()),
 )
 export function saveEntry(entry: DiaryEntry) {
   const next = [...diaryState.entries],
@@ -97,10 +92,6 @@ export async function deleteEntry(id: string) {
     await Promise.allSettled(
       entry.imageIds.map((id) => imageRepository.delete(id)),
     )
-}
-export function persist() {
-  if (!diaryScope.userId)
-    localStorage.setItem(KEY, JSON.stringify(diaryState.entries))
 }
 export function saveSettings() {
   localStorage.setItem(settingsKey, JSON.stringify(settings))

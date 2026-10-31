@@ -4,7 +4,7 @@ export interface RemoteEntry {
   entry: DiaryEntry | null
   version: string
 }
-export interface PendingEntry {
+interface PendingEntry {
   entry: DiaryEntry | null
   version: string
   base: string | null
@@ -20,7 +20,7 @@ export interface DiarySnapshot {
 export function emptySnapshot(): DiarySnapshot {
   return { entries: [], cleanup: [], versions: {}, pending: {}, conflicts: {} }
 }
-export function replaceDate(
+function replaceDate(
   entries: DiaryEntry[],
   date: string,
   entry: DiaryEntry | null,

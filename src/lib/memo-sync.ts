@@ -34,7 +34,7 @@ export function resetMemoSync() {
   memoSyncState.conflict = null
   scheduleMemoSync()
 }
-export async function refreshMemoSyncStatus() {
+async function refreshMemoSyncStatus() {
   const id = memoOwner(),
     token = generation
   if (!id) return

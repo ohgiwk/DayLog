@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { editAnswer, editAnswers } from './edit-answer'
+import { editAnswers } from './edit-answer'
 import type { DiaryEntry } from '../types'
 
 const entry: DiaryEntry = {
@@ -20,14 +20,14 @@ const entry: DiaryEntry = {
 
 describe('editing diary answers', () => {
   it('removes inapplicable follow-ups and recalculates the summary and tags', () => {
-    const result = editAnswer(entry, 'exercise', 'no')
+    const result = editAnswers(entry, { ...entry.answers, exercise: 'no' })
     expect(result.answers.exerciseType).toBeUndefined()
     expect(result.tags).toEqual([])
     expect(result.guess).not.toContain('散歩')
     expect(entry.answers.exerciseType).toBe('walk')
   })
   it('updates mood while preserving written content and photos', () => {
-    const result = editAnswer(entry, 'mood', '1')
+    const result = editAnswers(entry, { ...entry.answers, mood: '1' })
     expect(result.mood).toBe(1)
     for (const key of [
       'body',
@@ -42,15 +42,19 @@ describe('editing diary answers', () => {
     }
   })
   it('supports skips, clearing answers, and answering newly relevant questions', () => {
-    expect(editAnswer(entry, 'condition', 'skip').condition).toBe(3)
-    const cleared = editAnswer(entry, 'mood', '')
+    expect(
+      editAnswers(entry, { ...entry.answers, condition: 'skip' }).condition,
+    ).toBe(3)
+    const remaining = { ...entry.answers }
+    delete remaining.mood
+    const cleared = editAnswers(entry, remaining)
     expect(cleared.answers.mood).toBeUndefined()
     expect(cleared.mood).toBe(3)
-    const result = editAnswer(
-      editAnswer(entry, 'meeting', 'yes'),
-      'meetingType',
-      'friend',
-    )
+    const result = editAnswers(entry, {
+      ...entry.answers,
+      meeting: 'yes',
+      meetingType: 'friend',
+    })
     expect(result.answers.meetingType).toBe('friend')
     expect(result.tags).toContain('人と会った')
   })
@@ -58,7 +62,9 @@ describe('editing diary answers', () => {
 
 it('preserves a custom title when answers change', () => {
   const custom = { ...entry, guess: '秋の散歩と読書' }
-  expect(editAnswer(custom, 'exercise', 'no').guess).toBe(custom.guess)
+  expect(editAnswers(custom, { ...custom.answers, exercise: 'no' }).guess).toBe(
+    custom.guess,
+  )
   expect(editAnswers(custom, { work: 'yes' }).guess).toBe(custom.guess)
 })
 it('updates an automatic title when answering a full question session', () => {
@@ -75,5 +81,7 @@ it('preserves custom tags when answers are changed', () => {
     guess: '',
     body: '',
   } as unknown as DiaryEntry
-  expect(editAnswer(entry, 'mood', '4').tags).toContain('旅行')
+  expect(editAnswers(entry, { ...entry.answers, mood: '4' }).tags).toContain(
+    '旅行',
+  )
 })

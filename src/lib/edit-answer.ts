@@ -1,17 +1,6 @@
 import { activityQuestions, buildGuess } from '../data/questions'
 import type { DiaryEntry, MoodValue } from '../types'
 
-export function editAnswer(
-  entry: DiaryEntry,
-  id: string,
-  value: string,
-): DiaryEntry {
-  const answers = { ...entry.answers }
-  if (value) answers[id] = value
-  else delete answers[id]
-  return editAnswers(entry, answers)
-}
-
 export function editAnswers(
   entry: DiaryEntry,
   values: Record<string, string>,

@@ -32,7 +32,7 @@ export function setEditingCheck(check: () => boolean) {
 function current(id: string, generation: number) {
   return diaryScope.userId === id && diaryScope.generation === generation
 }
-export function refreshSyncStatus() {
+function refreshSyncStatus() {
   if (!diaryScope.userId) {
     syncState.pending = 0
     syncState.conflicts = []

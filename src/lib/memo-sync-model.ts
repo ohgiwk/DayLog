@@ -11,7 +11,7 @@ export interface MemoSnapshot {
   conflict: RemoteMemoLibrary | null
   imported: boolean
 }
-export const emptyLibrary = (): MemoLibrary => ({ folders: [], notes: [] })
+const emptyLibrary = (): MemoLibrary => ({ folders: [], notes: [] })
 export const emptyMemoSnapshot = (): MemoSnapshot => ({
   library: emptyLibrary(),
   base: emptyLibrary(),
@@ -34,7 +34,7 @@ function canonical(value: unknown): unknown {
 export function sameMemoValue(a: unknown, b: unknown) {
   return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b))
 }
-export interface MemoConflict {
+interface MemoConflict {
   kind: 'folders' | 'notes'
   id: string
   local?: MemoFolder | Memo
