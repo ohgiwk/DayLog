@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { dateKey } from '../lib/records-calendar';
+import { journalDate } from '../lib/journal-date';
 import AppNotice from './AppNotice.vue';
 import AppIcon from './AppIcon.vue';
 import DiaryEnvironmentPanel from './DiaryEnvironmentPanel.vue';
@@ -28,8 +30,12 @@ import { hasDiaryContent } from '../lib/diary-content';
 const props = defineProps<{
   initial: DiaryEntry;
   isNew?: boolean;
+  compose?: boolean;
   readonly?: boolean;
 }>();
+const composing = computed(
+  () => !props.readonly && (props.isNew || props.compose),
+);
 const emit = defineEmits<{ deleted: [] }>();
 const owner = diaryScope.userId,
   ownerGeneration = diaryScope.generation;
@@ -137,25 +143,38 @@ let unsaved = false,
   disposed = false,
   deleted = false,
   batchingChanges = false;
-let persisted = !props.isNew;
+const persisted = ref(!props.isNew);
+const saving = ref(false);
+const savedAt = ref(props.isNew ? '' : props.initial.updatedAt);
+const recentlySaved = ref(false);
+let saveFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
+const photoSaveFailed = ref(false);
 let pending: Promise<void> | undefined;
 function save() {
   if (!sameOwner()) return false;
   if (deleted) return true;
-  if (!persisted && !hasDiaryContent(draft)) {
+  if (!persisted.value && !hasDiaryContent(draft)) {
     unsaved = false;
     saveError.value = '';
     return true;
   }
+  saving.value = true;
   try {
+    const timestamp = new Date().toISOString();
     saveEntry({
       ...draft,
       answers: { ...draft.answers },
       tags: [...draft.tags],
       imageIds: [...draft.imageIds],
-      updatedAt: new Date().toISOString(),
+      updatedAt: timestamp,
     });
-    persisted = true;
+    persisted.value = true;
+    savedAt.value = timestamp;
+    recentlySaved.value = true;
+    clearTimeout(saveFeedbackTimer);
+    saveFeedbackTimer = setTimeout(() => {
+      recentlySaved.value = false;
+    }, 1600);
     unsaved = false;
     saveError.value = '';
     return true;
@@ -164,6 +183,8 @@ function save() {
     saveError.value =
       '自動保存できませんでした。端末の空き容量やブラウザの保存設定を確認してください。';
     return false;
+  } finally {
+    saving.value = false;
   }
 }
 // Text is persisted synchronously on each input, including the last keystroke before leaving.
@@ -202,6 +223,7 @@ function addFiles(event: Event) {
     return;
   }
   busy.value = true;
+  photoSaveFailed.value = false;
   photoError.value = '';
   pending = (async () => {
     for (const file of files) {
@@ -228,6 +250,7 @@ function addFiles(event: Event) {
         if (!draft.thumbnailImageId) draft.thumbnailImageId = id;
         save();
       } catch {
+        photoSaveFailed.value = true;
         photoError.value =
           '写真を保存できませんでした。別の画像や端末の空き容量を確認して、もう一度追加してください。';
       }
@@ -298,7 +321,41 @@ function applyAnswers(answers: Record<string, string>) {
   }
   return save();
 }
+const dateError = ref('');
+function changeDate(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const date = journalDate(input.value);
+  if (
+    entries.value.some((entry) => entry.id !== draft.id && entry.date === date)
+  ) {
+    dateError.value =
+      'この日付には日記があります。記録画面から開いてください。';
+    input.value = draft.date;
+    return;
+  }
+  dateError.value = '';
+  draft.date = date;
+  save();
+}
+const saveState = computed(() => {
+  if (busy.value || saving.value) return 'saving';
+  if (saveError.value || photoSaveFailed.value) return 'error';
+  return persisted.value ? 'saved' : 'empty';
+});
+const saveStatus = computed(() => {
+  if (saveState.value === 'saving') return '保存中…';
+  if (saveError.value) return '保存失敗';
+  if (photoSaveFailed.value) return '写真の保存失敗';
+  return persisted.value
+    ? recentlySaved.value
+      ? '保存しました'
+      : '保存済み'
+    : '未入力';
+});
 defineExpose({
+  savedAt,
+  saveState,
+  saveStatus,
   removeDiary,
   busy,
   applyAnswers,
@@ -321,6 +378,7 @@ function beforeUnload(event: BeforeUnloadEvent) {
 }
 window.addEventListener('beforeunload', beforeUnload);
 onBeforeUnmount(() => {
+  clearTimeout(saveFeedbackTimer);
   stopUpdatePreparation();
   tagDialog.value?.close();
   disposed = true;
@@ -329,20 +387,41 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div class="diary-editor" :class="{ 'is-new': isNew }">
+  <div
+    class="diary-editor"
+    :class="{
+      'is-new': isNew,
+      'is-composing': composing,
+      'is-reading-diary': readonly,
+    }"
+  >
     <AppNotice v-if="busy">写真を保存中…</AppNotice>
     <AppNotice v-if="saveError" error
       >{{ saveError }}
       <button class="text-button" @click="save">再試行</button></AppNotice
     >
+    <div v-if="composing" class="compose-controls">
+      <label class="compose-date"
+        ><AppIcon name="calendar-month" /><span>{{ dateLabel }}</span
+        ><AppIcon name="chevron-down" /><input
+          type="date"
+          :value="draft.date"
+          :max="dateKey(new Date())"
+          aria-label="日記の日付"
+          @change="changeDate"
+      /></label>
+      <slot name="mode" />
+    </div>
+    <p v-if="dateError" class="error" role="alert">{{ dateError }}</p>
     <section
+      v-if="!readonly || draft.imageIds.length"
       class="diary-photos"
       :class="{ 'photos-readonly': readonly }"
       aria-label="今日の写真"
     >
       <div class="photo-stage" :class="{ empty: !coverUrl }">
         <button
-          v-if="isNew && !readonly && !coverUrl"
+          v-if="composing && !coverUrl"
           type="button"
           class="photo-empty cover-placeholder"
           aria-label="写真を追加する"
@@ -351,6 +430,9 @@ onBeforeUnmount(() => {
           ><AppIcon name="image" /><span class="placeholder-title"
             >この日の景色も、一緒に。</span
           ><span>写真を添えて、思い出を残しましょう</span></button
+        >
+        <span v-if="coverUrl && composing" class="compose-cover-badge"
+          >表紙</span
         >
         <DiaryCover :src="coverUrl" @open="openPhoto(coverId || '', $event)" />
         <button
@@ -413,7 +495,9 @@ onBeforeUnmount(() => {
             ></div>
           </article>
         </div>
-        <div v-else-if="!isNew && !readonly && !coverUrl" class="photo-empty"
+        <div
+          v-else-if="!composing && !readonly && !coverUrl"
+          class="photo-empty"
           ><AppIcon name="image" /><p>この日の景色も、一緒に。</p
           ><span>写真を添えて、思い出を残しましょう</span></div
         >
@@ -428,8 +512,10 @@ onBeforeUnmount(() => {
             class="add-photo"
             :disabled="busy"
             @click="photoPicker?.click()"
-            ><AppIcon name="image"
-          /></button>
+            ><AppIcon name="plus" /><span v-if="composing"
+              >写真を追加</span
+            ></button
+          >
           <button
             type="button"
             title="撮影"
@@ -465,7 +551,7 @@ onBeforeUnmount(() => {
       <p v-if="photoError" class="error" role="alert">{{ photoError }}</p>
     </section>
     <div class="photo-caption">
-      <p class="diary-date">{{ dateLabel }}</p>
+      <p v-if="!composing" class="diary-date">{{ dateLabel }}</p>
       <div class="title-field"
         ><h1 v-if="readonly" class="read-title">{{
           draft.guess || '無題の日記'
@@ -477,46 +563,64 @@ onBeforeUnmount(() => {
           :placeholder="isNew ? suggestedTitle : '日記のタイトル'"
       /></div>
     </div>
-    <div class="body-heading">今日のこと</div
-    ><RichTextEditor v-model="draft.body" :readonly="readonly" />
+    <div v-if="!composing && !readonly" class="body-heading">今日のこと</div
+    ><RichTextEditor
+      v-model="draft.body"
+      :readonly="readonly"
+      :compact="composing"
+      @add-photo="photoPicker?.click()"
+    />
     <section v-if="readonly && draft.tomorrow" class="read-tomorrow"
       ><h2 class="body-heading">明日やりたいこと</h2
       ><p>{{ draft.tomorrow }}</p></section
     >
-    <label v-if="!readonly"
-      ><span class="field-heading">明日やりたいこと <small>任意</small></span
+    <div class="diary-meta">
+      <section
+        v-if="!readonly || draft.tags.length"
+        class="diary-tags"
+        aria-label="日記のタグ"
+      >
+        <h2 class="tags-label"
+          ><AppIcon v-if="composing || readonly" name="tag" /><span v-else
+            >タグ</span
+          ></h2
+        >
+        <div v-if="draft.tags.length" class="tag-list"
+          ><span v-for="tag in draft.tags" :key="tag"
+            >{{ tag
+            }}<button
+              v-if="!readonly"
+              type="button"
+              :aria-label="`${tag}タグを削除`"
+              @click="removeTag(tag)"
+              >×</button
+            ></span
+          ></div
+        >
+        <button
+          v-if="!readonly"
+          ref="tagTrigger"
+          type="button"
+          class="edit-tags"
+          aria-haspopup="dialog"
+          @click="openTags"
+          aria-label="タグを追加"
+          title="タグを追加"
+          >＋</button
+        >
+      </section>
+      <DiaryEnvironmentPanel
+        :readonly="readonly"
+        :model-value="draft.environment"
+        :date="draft.date"
+        @update:model-value="setEnvironment"
+      />
+    </div>
+    <label v-if="!readonly" class="tomorrow-field"
+      ><span class="field-heading"
+        ><AppIcon name="flag" />明日やりたいこと <small>任意</small></span
       ><input v-model="draft.tomorrow" placeholder="例：少し早く休む"
     /></label>
-    <section
-      v-if="!readonly || draft.tags.length"
-      class="diary-tags"
-      aria-label="日記のタグ"
-    >
-      <h2 class="tags-label">タグ</h2>
-      <div v-if="draft.tags.length" class="tag-list"
-        ><span v-for="tag in draft.tags" :key="tag"
-          ># {{ tag
-          }}<button
-            v-if="!readonly"
-            type="button"
-            :aria-label="`${tag}タグを削除`"
-            @click="removeTag(tag)"
-            >×</button
-          ></span
-        ></div
-      >
-      <button
-        v-if="!readonly"
-        ref="tagTrigger"
-        type="button"
-        class="edit-tags"
-        aria-haspopup="dialog"
-        @click="openTags"
-        aria-label="タグを追加"
-        title="タグを追加"
-        >＋</button
-      >
-    </section>
     <Teleport to="body">
       <dialog
         v-if="!readonly"
@@ -585,12 +689,6 @@ onBeforeUnmount(() => {
         <p v-if="saveError" class="error" role="alert">{{ saveError }}</p>
       </dialog>
     </Teleport>
-    <DiaryEnvironmentPanel
-      :readonly="readonly"
-      :model-value="draft.environment"
-      :date="draft.date"
-      @update:model-value="setEnvironment"
-    />
     <PhotoLightbox
       v-if="lightbox"
       :photos="photos"
@@ -600,6 +698,7 @@ onBeforeUnmount(() => {
     />
   </div>
 </template>
+
 <style scoped>
 .tag-dialog {
   width: min(400px, calc(100vw - 32px));
@@ -836,8 +935,6 @@ onBeforeUnmount(() => {
 }
 .photo-stage {
   position: relative;
-  margin: 0 calc(-1 * var(--page-right, 22px)) 24px
-    calc(-1 * var(--page-left, 22px));
   padding-top: 0;
 }
 .remove-cover {
@@ -867,10 +964,8 @@ onBeforeUnmount(() => {
   padding-top: 80px;
   margin-bottom: 24px;
 }
-.is-new .photo-stage {
-  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
-}
-.is-new .photo-stage.empty {
+
+.is-composing .photo-stage.empty {
   padding-top: 0;
 }
 .cover-placeholder {
@@ -906,7 +1001,6 @@ onBeforeUnmount(() => {
   background: transparent;
 }
 .photo-caption {
-  margin-bottom: 24px;
   color: var(--text);
 }
 .diary-date {
@@ -925,16 +1019,11 @@ onBeforeUnmount(() => {
   color: var(--sub);
 }
 .title-field input {
-  padding: 4px 0 10px;
   line-height: 1.6;
-  border: 0;
   width: 100%;
   color: var(--text);
   border-bottom: 1px solid var(--sage);
-  border-radius: 0;
-  background: transparent;
   font-size: 1.1rem;
-  font-weight: 700;
 }
 .title-field input::placeholder {
   color: var(--sub);
@@ -962,13 +1051,10 @@ onBeforeUnmount(() => {
   gap: 8px;
   white-space: nowrap;
 }
-</style>
 
-<style scoped>
 .photo-collection {
   padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 18px;
   background: rgba(255, 255, 255, 0.55);
 }
 .collection-heading {
@@ -1091,17 +1177,11 @@ onBeforeUnmount(() => {
   border-radius: 12px;
 }
 .collection-actions {
-  position: fixed;
-  z-index: 25;
-  left: max(20px, calc((100vw - var(--app-width, 430px)) / 2 + 20px));
-  bottom: calc(102px + env(safe-area-inset-bottom, 0px));
+  position: static;
   display: flex;
   align-items: center;
   gap: 10px;
   margin: 0;
-}
-.is-new .collection-actions {
-  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
 }
 .collection-actions button {
   appearance: none;
@@ -1180,13 +1260,11 @@ onBeforeUnmount(() => {
   border: 0;
   background: transparent;
 }
-.is-reading .photo-grid {
-  gap: 8px;
-}
 .is-reading .photo-preview {
   border-radius: 6px;
 }
 .is-reading .photo-grid {
+  gap: 8px;
   display: grid;
 }
 
@@ -1196,6 +1274,457 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .photo-preview img {
     transition: none;
+  }
+}
+.diary-editor .photo-stage {
+  margin: 0 0 14px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.diary-editor .photo-stage :deep(img) {
+  border-radius: 16px;
+}
+.diary-editor .title-field input {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-weight: 500;
+}
+.diary-editor :deep(.rich-text-editor) {
+  border-radius: 14px;
+  background: var(--surface);
+}
+.diary-editor .photo-caption {
+  margin-bottom: 16px;
+}
+.diary-editor .photo-collection {
+  border-radius: 14px;
+}
+
+/* The compose layout follows the photo, writing, metadata, tomorrow sequence. */
+.compose-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+.compose-date {
+  position: relative;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem !important;
+  font-weight: 400 !important;
+  min-height: 38px;
+}
+.compose-date input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+}
+.compose-date input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  cursor: pointer;
+}
+.compose-date:focus-within {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+.compose-date .app-icon {
+  color: var(--forest);
+  width: 23px;
+  height: 23px;
+}
+.compose-cover-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  color: white;
+  background: var(--forest);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 0.75rem;
+}
+.diary-editor.is-composing .photo-stage {
+  margin: 0 0 10px;
+  padding-top: 0;
+}
+.is-composing .photo-stage :deep(.diary-cover img) {
+  height: clamp(190px, 40vw, 310px);
+  object-fit: cover;
+}
+.is-composing .cover-placeholder {
+  min-height: 200px;
+  border: 1px dashed var(--line);
+  background: var(--mist);
+}
+.is-composing .remove-cover {
+  top: 12px;
+  bottom: auto;
+  right: 12px;
+}
+.diary-editor.is-composing .photo-collection {
+  display: flex;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow-x: auto;
+}
+.is-composing .photo-grid,
+.is-composing .photo-grid.many-photos {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.is-composing .photo-card {
+  width: 174px;
+}
+.is-composing .photo-preview {
+  height: 110px;
+  aspect-ratio: auto;
+}
+.diary-editor.is-composing .collection-actions {
+  position: static;
+  align-self: flex-start;
+  gap: 8px;
+}
+.diary-editor.is-composing .collection-actions .add-photo {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 170px;
+  max-width: none;
+  flex: 0 0 170px;
+  height: 110px;
+  max-height: none;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--sub);
+  box-shadow: none;
+  font-size: 0.85rem;
+}
+.is-composing .collection-actions .take-photo {
+  align-self: center;
+  box-shadow: none;
+}
+.is-composing .photo-card-actions {
+  padding-top: 0;
+}
+.is-composing .photo-card-actions button {
+  min-height: 24px;
+}
+.diary-editor.is-composing .photo-caption {
+  margin: 0 0 12px;
+}
+.is-composing .title-field {
+  position: relative;
+}
+.is-composing .title-field input {
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+.is-composing :deep(.rich-text-editor) {
+  overflow: visible;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.is-composing :deep(.format-tools) {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 12px 12px 0 0;
+  padding: 6px 12px;
+  gap: 8px;
+  background: transparent;
+}
+.is-composing :deep(.format-tools > button) {
+  width: 40px;
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: #777;
+}
+.is-composing :deep(.rich-text-field) {
+  min-height: 185px;
+  border: 0;
+  padding: 18px 20px;
+  font-size: 1rem;
+  line-height: 1.9;
+}
+.diary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+.is-composing .diary-meta {
+  margin: 16px 0;
+}
+.is-composing .diary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  margin: 0;
+  flex: 1;
+}
+.is-composing .tags-label {
+  flex-basis: auto;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  color: var(--forest);
+}
+.is-composing .tags-label .app-icon {
+  width: 21px;
+}
+.is-composing .tag-list {
+  margin: 0;
+  gap: 6px;
+}
+.is-composing .tag-list span {
+  padding: 8px 12px;
+  border-radius: 24px;
+  background: var(--mist);
+  color: var(--forest);
+}
+.is-composing .edit-tags {
+  width: 44px;
+  height: 36px;
+  border: 1px dashed var(--sage);
+  border-radius: 24px;
+  background: transparent;
+}
+.is-composing .diary-meta :deep(.environment-area) {
+  margin: 0;
+  flex: 1;
+  min-width: 250px;
+}
+.is-composing .diary-meta :deep(.environment-panel) {
+  border-radius: 24px;
+  background: transparent;
+  padding: 6px 10px;
+  min-height: 38px;
+}
+.is-composing .diary-meta :deep(.environment-sources) {
+  font-size: 0.65rem;
+  margin-top: 8px;
+}
+.is-composing .tomorrow-field {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-weight: 400;
+}
+.is-composing .tomorrow-field .field-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--forest);
+}
+.is-composing .tomorrow-field input {
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+@media (max-width: 460px) {
+  .compose-controls {
+    gap: 8px;
+  }
+  .compose-date {
+    font-size: 0.8rem !important;
+  }
+  .is-composing :deep(.format-tools) {
+    gap: 2px;
+    padding: 6px;
+  }
+  .is-composing :deep(.format-tools > button) {
+    width: 34px;
+  }
+  .is-composing .diary-meta :deep(.environment-area) {
+    flex-basis: 100%;
+  }
+}
+
+/* Reading mode has a quiet article hierarchy and no editor chrome. */
+.diary-editor.is-reading-diary {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+}
+.is-reading-diary .photo-caption {
+  order: 0;
+  margin: 0 0 24px;
+}
+.is-reading-diary .diary-date {
+  margin: 0 0 10px;
+  color: var(--forest);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+.is-reading-diary .photo-caption .read-title {
+  font-family: 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+  font-size: 1.85rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+.is-reading-diary .diary-photos {
+  order: 1;
+  margin: 0 0 24px;
+}
+.is-reading-diary .photo-stage {
+  margin: 0 0 10px;
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.is-reading-diary .photo-stage :deep(.diary-cover img) {
+  max-height: 360px;
+  width: 100%;
+  object-fit: cover;
+}
+.is-reading-diary .photo-collection.is-reading {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.is-reading-diary .photo-grid,
+.is-reading-diary .photo-grid.many-photos {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.is-reading-diary .photo-card {
+  flex: 0 0 130px;
+}
+.is-reading-diary .photo-preview {
+  height: 90px;
+  border-radius: 10px;
+  aspect-ratio: auto;
+}
+.is-reading-diary :deep(.rich-text-editor.readonly) {
+  order: 2;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.is-reading-diary :deep(.rich-text-field) {
+  padding: 0;
+  font-size: 1rem;
+  line-height: 2;
+  color: var(--text);
+}
+.is-reading-diary .diary-meta {
+  order: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 24px 0 0;
+}
+.is-reading-diary .diary-meta:has(> :first-child) {
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.is-reading-diary .diary-tags {
+  margin: 0;
+  gap: 8px;
+}
+.is-reading-diary .tags-label {
+  flex-basis: auto;
+  display: flex;
+  align-items: center;
+  color: var(--forest);
+}
+.is-reading-diary .tags-label .app-icon {
+  width: 20px;
+  height: 20px;
+}
+.is-reading-diary .tag-list span {
+  background: var(--mist);
+  color: var(--forest);
+  border-radius: 24px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+.is-reading-diary .diary-meta :deep(.environment-area) {
+  width: 100%;
+  margin: 0;
+}
+.is-reading-diary .diary-meta :deep(.environment-panels) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.is-reading-diary .diary-meta :deep(.environment-panel) {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 0.8rem;
+}
+.is-reading-diary .diary-meta :deep(.weather) {
+  font-size: 0.8rem;
+}
+.is-reading-diary .read-tomorrow {
+  order: 4;
+  margin: 24px 0 0;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--mist);
+}
+.is-reading-diary .read-tomorrow .body-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: var(--forest);
+  font-weight: 500;
+}
+.is-reading-diary .read-tomorrow .app-icon {
+  width: 18px;
+  height: 18px;
+}
+.is-reading-diary .read-tomorrow p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.9;
+}
+@media (max-width: 460px) {
+  .diary-editor.is-reading-diary {
+    padding: 18px 16px;
+    border-radius: 18px;
+  }
+  .is-reading-diary .photo-caption .read-title {
+    font-size: 1.5rem;
+  }
+  .is-reading-diary .photo-stage :deep(.diary-cover img) {
+    max-height: 240px;
   }
 }
 </style>

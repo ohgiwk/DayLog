@@ -10,6 +10,8 @@ import {
   watch,
 } from 'vue';
 import type { DiaryEntry } from '../types';
+import DiaryComposeHeader from '../components/DiaryComposeHeader.vue';
+import DiaryComposeMode from '../components/DiaryComposeMode.vue';
 import AppIcon from '../components/AppIcon.vue';
 import TrashIcon from '../components/TrashIcon.vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -123,18 +125,28 @@ async function removeDiary() {
 }
 </script>
 <template>
-  <div v-if="entry" ref="page" class="page detail-page"
+  <div
+    v-if="entry"
+    ref="page"
+    class="page detail-page"
+    :class="{ 'is-editing': editing }"
     ><DiaryQuestions
       v-if="questionsOpen"
       :initial-answers="questionAnswers"
       :save-answers="saveQuestionAnswers"
       @complete="finishQuestions"
     /><div v-show="!questionsOpen" class="detail-editor"
-      ><header class="detail-nav"
-        ><button
-          v-if="route.query.from !== 'write'"
-          @click="router.back()"
-          aria-label="戻る"
+      ><DiaryComposeHeader
+        v-if="editing"
+        title="日記を編集"
+        show-complete
+        :complete-disabled="!editor || editor.busy"
+        @complete="toggleEditing"
+        :status="editor?.saveStatus"
+        :state="editor?.saveState"
+        @back="router.push('/records')"
+      /><header v-else class="detail-nav"
+        ><button @click="router.push('/records')" aria-label="戻る"
           ><svg
             class="back-icon"
             viewBox="0 0 24 24"
@@ -142,6 +154,7 @@ async function removeDiary() {
             focusable="false"
           >
             <path d="m15 5-7 7 7 7" /></svg></button
+        ><span class="read-nav-title">日記</span
         ><button
           type="button"
           class="mode-toggle"
@@ -190,17 +203,14 @@ async function removeDiary() {
         :key="entry.id"
         :initial="entry"
         :readonly="!editing"
-        @deleted="router.replace('/records')" />
-      <button
-        v-if="editing"
-        type="button"
-        class="question-fab"
-        aria-label="質問モードを始める"
-        title="質問モードを始める"
-        :disabled="!editor || editor.busy || switchingQuestions"
-        @click="startQuestions"
-        ><AppIcon name="message-question" /></button
-    ></div> </div
+        :compose="editing"
+        @deleted="router.replace('/records')"
+        ><template #mode
+          ><DiaryComposeMode
+            :disabled="!editor || editor.busy || switchingQuestions"
+            @questions="startQuestions" /></template
+      ></DiaryEditor>
+    </div> </div
   ><div v-else class="page"
     ><p>この日記は見つかりませんでした。</p
     ><RouterLink to="/records">記録へ戻る</RouterLink></div
@@ -216,97 +226,31 @@ async function removeDiary() {
 .detail-editor {
   padding-bottom: 80px;
 }
-.detail-editor :deep(.diary-cover) {
-  position: relative;
-  height: 40vh;
-  height: 40dvh;
-  overflow: hidden;
-}
-.detail-editor :deep(.diary-cover)::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    transparent 80%,
-    rgba(0, 0, 0, 0.55) 100%
-  );
-}
-.detail-editor :deep(.diary-cover img) {
-  height: 100%;
-  object-fit: cover;
-  object-position: center center;
-}
-.question-fab {
-  position: fixed;
-  z-index: 25;
-  right: max(20px, calc((100vw - var(--app-width, 430px)) / 2 + 20px));
-  bottom: calc(102px + env(safe-area-inset-bottom, 0px));
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--forest);
-  color: white;
-  box-shadow: 0 6px 20px rgba(36, 74, 61, 0.25);
-  cursor: pointer;
-}
-.question-fab :deep(.app-icon) {
-  width: 26px;
-  height: 26px;
-}
-.question-fab:hover {
-  filter: brightness(1.1);
-}
-.question-fab:focus-visible {
-  outline: 3px solid var(--sage);
-  outline-offset: 4px;
-}
-.question-fab:disabled {
-  opacity: 0.5;
-  cursor: wait;
-}
 .detail-nav {
-  position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 16px);
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
-  width: min(var(--app-width, 430px), 100%);
-  padding: 0 var(--page-right, 22px) 0 var(--page-left, 22px);
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
   z-index: 30;
+  display: flex;
   align-items: center;
-  margin: 0;
-  pointer-events: none;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 12px 0;
+  background: var(--paper);
 }
-.detail-nav > button,
-.detail-nav > .diary-menu {
-  pointer-events: auto;
-}
-.detail-nav > button,
-.detail-nav .diary-menu-trigger {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 2px 10px rgba(32, 50, 44, 0.08);
-}
-.detail-nav > button,
-.diary-menu-trigger {
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 50%;
+.read-nav-title {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
 }
 .detail-nav > .mode-toggle {
-  margin-left: auto;
-  margin-right: 10px;
   width: auto;
-  padding: 0 16px;
-  border-radius: 22px;
-  font-size: 0.8rem;
-  font-weight: 700;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  color: var(--forest);
+  font-size: 0.85rem;
 }
 .diary-date {
   margin: 0 0 16px;
@@ -324,15 +268,6 @@ async function removeDiary() {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.detail-nav > button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  padding: 0;
-  line-height: 1;
-}
 
 .diary-menu {
   position: relative;
@@ -346,7 +281,7 @@ async function removeDiary() {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: transparent;
+  background: var(--surface);
   color: var(--forest);
   cursor: pointer;
   transition:
@@ -442,6 +377,13 @@ async function removeDiary() {
 }
 
 .detail-nav > button {
+  line-height: 1;
+  padding: 0;
+  min-height: 44px;
+  height: 44px;
+  width: 44px;
+  place-items: center;
+  display: grid;
   transition:
     transform 160ms ease,
     background-color 160ms ease;
@@ -462,5 +404,11 @@ async function removeDiary() {
 }
 :global(.reduce-motion) .detail-nav > button:active {
   transform: none;
+}
+.detail-page.is-editing {
+  background: var(--paper);
+}
+.is-editing .detail-editor {
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
 }
 </style>

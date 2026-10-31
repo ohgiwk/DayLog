@@ -1,237 +1,116 @@
-/* Blue-to-green accents with white content panels. */
+/* Seasonal ink on warm paper. All four palettes share the same layout. */
+:root,
+:root[data-season='spring'] {
+  --forest: #61836b;
+  --sage: #61836b;
+  --paper: #f7f8f3;
+  --mist: #eaf0e8;
+}
+:root[data-season='summer'] {
+  --forest: #397c80;
+  --sage: #397c80;
+  --paper: #f4f8f7;
+  --mist: #e5f0ef;
+}
+:root[data-season='autumn'] {
+  --forest: #8b6248;
+  --sage: #8b6248;
+  --paper: #f9f6f0;
+  --mist: #f1e9df;
+}
+:root[data-season='winter'] {
+  --forest: #60778b;
+  --sage: #60778b;
+  --paper: #f5f7f9;
+  --mist: #e8eef3;
+}
 :root {
-  --gradient-sky: #9bd5ed;
-  --gradient-mint: #a7dfc1;
-  --gradient-hero:
-    linear-gradient(180deg, var(--status-bar) 0, transparent 160px),
-    radial-gradient(
-      ellipse at 85% 18%,
-      rgba(255, 255, 247, 0.7),
-      transparent 48%
-    ),
-    radial-gradient(
-      ellipse at 100% 65%,
-      rgba(150, 212, 179, 0.6),
-      transparent 58%
-    ),
-    linear-gradient(135deg, #b3d9e8 0%, #cbe5d9 62%, #e0ead9 100%);
-  --status-bar: #cbe5d9;
-  --gradient-card: linear-gradient(135deg, #d4ecf8 0%, #dbf1e4 100%);
-  --gradient-action: linear-gradient(120deg, #245e79 0%, #256449 100%);
-  --sub: #526e65;
-  --sage: #527b6b;
+  --text: #222923;
+  --sub: #777975;
+  --surface: #fffefd;
+  --line: #e7e4dd;
+  --status-bar: var(--paper);
+  --gradient-action: var(--forest);
+  --gradient-card: var(--mist);
+  --app-width: 760px;
+  --shadow: 0 6px 24px #4a392606;
 }
-
-/* Diffused daylight keeps the greeting calm without outlined ornaments. */
-.home-hero {
-  background: var(--gradient-hero);
+body {
+  color: var(--text);
 }
-
+.page {
+  padding-top: 26px;
+}
 .page-header {
-  margin: -32px calc(-1 * var(--page-right)) 24px calc(-1 * var(--page-left));
-  padding: 48px calc(var(--page-right) + 2px) 28px calc(var(--page-left) + 2px);
-  background: var(--gradient-hero);
-  border-radius: 0 0 28px 28px;
-}
-
-.page-header > p:last-child {
-  margin-bottom: 0;
-}
-
-.home-hero .eyebrow,
-.page-header .eyebrow {
-  color: #365f57;
-}
-
-.today-card,
-.insight-card,
-.guess-card {
-  background: var(--surface);
-  border: 1px solid #c1ddd8;
-}
-
-.soft-card,
-.calendar-card,
-.stat-grid article,
-.entry-row,
-.settings-group button {
-  background: var(--surface);
-}
-
-.primary-button,
-.tabbar .write-tab span {
-  background: var(--gradient-action);
-  box-shadow: 0 8px 20px rgba(36, 94, 100, 0.2);
-}
-
-.tabbar {
-  background: linear-gradient(110deg, #e1f1fa, #def1e4);
-  border-top-color: #c0dcd6;
-}
-
-.tabbar a {
-  color: #5d756d;
-}
-
-.entry-row .entry-icon,
-.entry-thumb,
-.setting-icon,
-.tag-list span,
-.days .written a {
-  background: var(--gradient-card);
-}
-
-.bars i,
-.progress i {
-  background: linear-gradient(135deg, #539bb9, #65a980);
-}
-
-.journal-page {
-  background-image: none;
-  background-color: var(--paper);
-  background-size: 100% 400px;
-  background-repeat: no-repeat;
-}
-
-.answer-grid button {
-  background: var(--surface);
-}
-
-.answer-grid button:active {
-  background: var(--gradient-card);
-}
-
-.memos-page .memo-toolbar,
-.memos-page .memo-row {
-  background: var(--surface);
-}
-
-.memos-page .memo-editor {
-  border-color: #b8d7cb;
-}
-
-/* Center SVG controls independently of font metrics. */
-.journal-header .icon-button,
-.month-nav button,
-.lightbox button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
+  margin-bottom: 24px;
   padding: 0;
-  line-height: 1;
+  background: none;
+  border-radius: 0;
 }
-.tabbar a:not(.write-tab) > span {
+.page-header h1 {
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+}
+.page-header > .eyebrow,
+.page-header > p:last-child {
+  display: none;
+}
+.sticky-page-header {
+  background: var(--paper);
+}
+.primary-button {
+  background: var(--forest);
+  box-shadow: none;
+  border-radius: 16px;
+}
+.tabbar {
+  background: #fffefdf5;
+  border-top: 1px solid var(--line);
+  box-shadow: none;
+}
+.tabbar a {
+  color: #858583;
+}
+.tabbar a.router-link-active {
+  color: var(--forest);
+}
+.tabbar a > span {
   display: grid;
   place-items: center;
   height: 30px;
 }
-.tabbar a:not(.write-tab) .app-icon {
-  width: 24px;
-  height: 24px;
+.tabbar .app-icon {
+  width: 25px;
+  height: 25px;
 }
-.entry-icon .app-icon {
-  width: 28px;
-  height: 28px;
+.compose-fab {
+  position: fixed;
+  z-index: 25;
+  left: auto;
+  right: max(
+    18px,
+    env(safe-area-inset-right, 0px),
+    calc((100vw - var(--app-width)) / 2 + 18px)
+  );
+  bottom: calc(var(--tabbar-height) + 14px);
+  width: auto;
+  height: 54px;
+  border-radius: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 28px;
+  background: var(--forest);
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+  white-space: nowrap;
+  box-shadow: 0 6px 22px #453b2514;
 }
-.entry-row > b .app-icon {
-  width: 14px;
-  height: 20px;
-}
-.answer-grid button > span {
-  display: grid;
-  place-items: center;
-}
-.gallery-image > button:first-of-type {
-  display: grid;
-  place-items: center;
-  padding: 0;
-}
-
-/* Touch feedback and a soft selected-tab highlight. */
-.tabbar a {
-  border-radius: 16px;
-  transition: color 180ms ease;
-  touch-action: manipulation;
-}
-.tabbar a:not(.write-tab) > span {
-  position: relative;
-  isolation: isolate;
-  width: 48px;
-  border-radius: 14px;
-  transition: transform 140ms ease;
-}
-.tabbar a:not(.write-tab) > span::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: var(--gradient-card);
-  opacity: 0;
-  transform: scale(0.75);
-  transition:
-    opacity 200ms ease,
-    transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.tabbar a:not(.write-tab).router-link-active > span::before {
-  opacity: 1;
-  transform: scale(1);
-}
-.tabbar a:not(.write-tab):active > span {
-  transform: scale(0.82);
-}
-.tabbar a svg {
-  transform-origin: center;
-}
-.tabbar a:focus-visible {
-  outline: 2px solid var(--forest);
-  outline-offset: 2px;
-}
-@media (hover: hover) {
-  .tabbar a:not(.write-tab):hover > span::before {
-    opacity: 0.65;
-    transform: scale(1);
+@media (max-width: 460px) {
+  :root {
+    --page-left: max(14px, env(safe-area-inset-left));
+    --page-right: max(14px, env(safe-area-inset-right));
   }
-}
-.reduce-motion .tabbar a:active > span {
-  transform: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .tabbar a,
-  .tabbar a > span,
-  .tabbar a > span::before {
-    transition: none;
-  }
-  .tabbar a:active > span {
-    transform: none;
-  }
-}
-.reduce-motion .tabbar a > span::before {
-  transition: none;
-}
-
-.tabbar .write-tab:active span {
-  transform: scale(0.86);
-}
-.reduce-motion .tabbar .write-tab:active span {
-  transform: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .tabbar .write-tab:active span {
-    transform: none;
-  }
-}
-
-.detail-page {
-  background-color: var(--paper);
-  background-image: none;
-  background-size: 100% 340px;
-  background-repeat: no-repeat;
-}
-
-/* Keep the base background consistent across routed pages. */
-.app-shell > main {
-  background-color: var(--paper);
-  background-image: none;
 }

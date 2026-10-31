@@ -6,6 +6,8 @@ import type { DiaryEntry } from '../types'
 const storage = vi.hoisted(() => ({
   save: vi.fn(),
   get: vi.fn(),
+  put: vi.fn(),
+  compress: vi.fn(),
   remove: vi.fn(),
   confirm: vi.fn(),
   entries: [] as DiaryEntry[],
@@ -21,8 +23,12 @@ vi.mock('../stores/diary', () => ({
   deleteEntry: vi.fn(),
 }))
 vi.mock('../lib/image-repository', () => ({
-  compressImage: vi.fn(),
-  imageRepository: { get: storage.get, delete: storage.remove },
+  compressImage: storage.compress,
+  imageRepository: {
+    get: storage.get,
+    put: storage.put,
+    delete: storage.remove,
+  },
 }))
 vi.mock('../lib/delete-confirmation', () => ({
   confirmDelete: storage.confirm,
@@ -83,11 +89,17 @@ afterEach(() => {
   app = undefined
   document.body.innerHTML = ''
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
-async function mount(entry = initial(), readonly = false, isNew = false) {
+async function mount(
+  entry = initial(),
+  readonly = false,
+  isNew = false,
+  compose = false,
+) {
   const root = document.createElement('div')
   document.body.append(root)
-  app = createApp(DiaryEditor, { initial: entry, readonly, isNew })
+  app = createApp(DiaryEditor, { initial: entry, readonly, isNew, compose })
   app.mount(root)
   await vi.waitFor(() =>
     expect(document.querySelectorAll('img')).toHaveLength(
@@ -317,4 +329,141 @@ it('saves the final answer update once without persisting intermediate fields', 
     answers: { mood: '1', condition: '2', work: 'yes' },
     tags: ['仕事・勉強'],
   })
+})
+
+it('changes the compose date without losing the diary content', async () => {
+  await mount(initial([], undefined), false, true)
+  const date = document.querySelector<HTMLInputElement>(
+    '[aria-label="日記の日付"]',
+  )!
+  storage.save.mockClear()
+  date.value = '2026-10-25'
+  date.dispatchEvent(new Event('change', { bubbles: true }))
+  await nextTick()
+  expect(storage.save).toHaveBeenLastCalledWith(
+    expect.objectContaining({ date: '2026-10-25', body: '本文', id: 'diary' }),
+  )
+})
+it('keeps the original date when another diary already exists on the selected date', async () => {
+  storage.entries = [
+    { ...initial([], undefined), id: 'other', date: '2026-10-25' },
+  ]
+  await mount(initial([], undefined), false, true)
+  const date = document.querySelector<HTMLInputElement>(
+    '[aria-label="日記の日付"]',
+  )!
+  storage.save.mockClear()
+  date.value = '2026-10-25'
+  date.dispatchEvent(new Event('change', { bubbles: true }))
+  await nextTick()
+  expect(date.value).toBe('2026-10-26')
+  expect(storage.save).not.toHaveBeenCalled()
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain(
+    'この日付には日記があります',
+  )
+})
+
+it('uses the compose layout when reopening a saved diary for editing', async () => {
+  await mount(initial([], undefined), false, false, true)
+  expect(document.querySelector('.diary-editor.is-composing')).not.toBeNull()
+  expect(document.querySelector('[aria-label="日記の日付"]')).not.toBeNull()
+  expect(document.querySelector('.cover-placeholder')).not.toBeNull()
+  expect(
+    document.querySelector('.collection-actions .add-photo')?.textContent,
+  ).toContain('写真を追加')
+  expect(document.querySelector('.diary-date')).toBeNull()
+})
+it('keeps reading mode when compose is requested for a readonly diary', async () => {
+  await mount(initial([], undefined), true, false, true)
+  expect(document.querySelector('.is-composing')).toBeNull()
+  expect(document.querySelector('[aria-label="日記の日付"]')).toBeNull()
+})
+
+it('reports an empty new diary, successful autosave, failure, and retry truthfully', async () => {
+  await mount(
+    { ...initial([], undefined), guess: '', body: '', tomorrow: '' },
+    false,
+    true,
+  )
+  const exposed = app!._instance!.exposed!
+  expect(exposed.saveStatus.value).toBe('未入力')
+  expect(exposed.saveState.value).toBe('empty')
+  const title = document.querySelector<HTMLInputElement>(
+    '[aria-label="タイトル"]',
+  )!
+  title.value = '自動保存の確認'
+  title.dispatchEvent(new Event('input', { bubbles: true }))
+  await nextTick()
+  expect(storage.save).toHaveBeenLastCalledWith(
+    expect.objectContaining({ guess: '自動保存の確認' }),
+  )
+  expect(exposed.saveStatus.value).toBe('保存しました')
+  storage.save.mockImplementation(() => {
+    throw new Error('quota')
+  })
+  title.value = '未保存の変更'
+  title.dispatchEvent(new Event('input', { bubbles: true }))
+  await nextTick()
+  expect(exposed.saveState.value).toBe('error')
+  expect(exposed.saveStatus.value).toBe('保存失敗')
+  storage.save.mockReset()
+  document.querySelector<HTMLButtonElement>('.text-button')!.click()
+  await nextTick()
+  expect(exposed.saveState.value).toBe('saved')
+  expect(storage.save).toHaveBeenLastCalledWith(
+    expect.objectContaining({ guess: '未保存の変更' }),
+  )
+})
+it('reports photo saving and a failed image transaction without claiming success', async () => {
+  await mount(initial([], undefined), false, false, true)
+  let rejectUpload!: (reason: Error) => void
+  storage.compress.mockResolvedValue(new Blob(['photo'], { type: 'image/png' }))
+  storage.put.mockReturnValue(
+    new Promise((_, reject) => {
+      rejectUpload = reject
+    }),
+  )
+  const input = document.querySelector<HTMLInputElement>(
+    '[aria-label="写真を選択"]',
+  )!
+  Object.defineProperty(input, 'files', {
+    value: [new File(['photo'], 'photo.png', { type: 'image/png' })],
+  })
+  input.dispatchEvent(new Event('change', { bubbles: true }))
+  const exposed = app!._instance!.exposed!
+  expect(exposed.saveStatus.value).toBe('保存中…')
+  await vi.waitFor(() => expect(storage.put).toHaveBeenCalled())
+  rejectUpload(new Error('quota'))
+  await vi.waitFor(() =>
+    expect(exposed.saveStatus.value).toBe('写真の保存失敗'),
+  )
+  expect(exposed.saveState.value).toBe('error')
+})
+
+it('updates the visible save confirmation and timestamp only after a successful write', async () => {
+  await mount(initial([], undefined), false, false, true)
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-11-01T01:00:00Z'))
+  const exposed = app!._instance!.exposed!
+  const title = document.querySelector<HTMLInputElement>(
+    '[aria-label="タイトル"]',
+  )!
+  title.value = '最初の変更'
+  title.dispatchEvent(new Event('input', { bubbles: true }))
+  expect(exposed.saveStatus.value).toBe('保存しました')
+  expect(exposed.savedAt.value).toBe('2026-11-01T01:00:00.000Z')
+  vi.advanceTimersByTime(1600)
+  expect(exposed.saveStatus.value).toBe('保存済み')
+  title.value = '次の変更'
+  title.dispatchEvent(new Event('input', { bubbles: true }))
+  expect(exposed.saveStatus.value).toBe('保存しました')
+  expect(exposed.savedAt.value).toBe('2026-11-01T01:00:01.600Z')
+  storage.save.mockImplementation(() => {
+    throw new Error('quota')
+  })
+  vi.advanceTimersByTime(1000)
+  title.value = '保存できない変更'
+  title.dispatchEvent(new Event('input', { bubbles: true }))
+  expect(exposed.saveStatus.value).toBe('保存失敗')
+  expect(exposed.savedAt.value).toBe('2026-11-01T01:00:01.600Z')
 })

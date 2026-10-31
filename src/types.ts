@@ -59,7 +59,9 @@ export interface GuessResult {
   text: string
   tags: ActivityTag[]
 }
+export type Season = 'spring' | 'summer' | 'autumn' | 'winter'
 export interface AppSettings {
+  seasonTheme: Season | 'auto'
   notifications: boolean
   location: boolean
   weather: boolean

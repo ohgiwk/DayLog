@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ComposePlusIcon from './components/ComposePlusIcon.vue';
+import { applySeasonTheme } from './lib/season-theme';
 import AppSplash from './components/AppSplash.vue';
 import AppIcon from './components/AppIcon.vue';
 
@@ -31,6 +33,18 @@ import UpdateNotice from './components/UpdateNotice.vue';
 import { existingJournalPath } from './lib/journal-navigation';
 import { entries, saveSettings, settings } from './stores/diary';
 saveSettings();
+const seasonTimer = window.setInterval(
+  () => applySeasonTheme(settings.seasonTheme),
+  60_000,
+);
+function refreshSeason() {
+  applySeasonTheme(settings.seasonTheme);
+}
+document.addEventListener('visibilitychange', refreshSeason);
+onBeforeUnmount(() => {
+  window.clearInterval(seasonTimer);
+  document.removeEventListener('visibilitychange', refreshSeason);
+});
 provide('app-notification-target', '#app-notifications');
 const route = useRoute(),
   router = useRouter();
@@ -207,7 +221,13 @@ function animateTab(event: MouseEvent) {
     </main>
     <AppSplash v-else :error="account.error" />
     <nav
-      v-if="account.ready && account.user && !authScreen"
+      v-if="
+        account.ready &&
+        account.user &&
+        !authScreen &&
+        route.path !== '/journal' &&
+        !(route.path.startsWith('/entry/') && route.query.edit === '1')
+      "
       class="tabbar"
       :style="
         tabKeyboardOffset
@@ -220,14 +240,19 @@ function animateTab(event: MouseEvent) {
       <RouterLink to="/records" aria-label="記録"
         ><span><AppIcon name="records" /></span><small>記録</small></RouterLink
       >
-      <RouterLink :to="writeTarget" class="write-tab" aria-label="日記を書く"
-        ><span><AppIcon name="notebook-pen" /></span
-        ><small>日記を書く</small></RouterLink
-      >
       <RouterLink to="/memos" aria-label="メモ"
         ><span><AppIcon name="note" /></span><small>メモ</small></RouterLink
       >
+      <RouterLink to="/settings" aria-label="設定"
+        ><span><AppIcon name="settings" /></span><small>設定</small></RouterLink
+      >
     </nav>
+    <RouterLink
+      v-if="account.ready && account.user && route.path === '/records'"
+      :to="writeTarget"
+      class="compose-fab"
+      ><ComposePlusIcon />今日を書く</RouterLink
+    >
   </div>
 </template>
 

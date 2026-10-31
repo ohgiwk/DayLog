@@ -1,3 +1,4 @@
+import { applySeasonTheme } from '../lib/season-theme'
 import { computed, reactive } from 'vue'
 import type { DiaryEntry } from '../types'
 import { imageRepository } from '../lib/image-repository'
@@ -97,6 +98,7 @@ export async function deleteEntry(id: string) {
     )
 }
 export function saveSettings() {
+  applySeasonTheme(settings.seasonTheme)
   localStorage.setItem(settingsKey, JSON.stringify(settings))
   document.documentElement.classList.toggle(
     'reduce-motion',

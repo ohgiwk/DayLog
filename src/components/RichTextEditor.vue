@@ -7,7 +7,8 @@ import {
   sanitizeRichText,
   writeRichText,
 } from '../lib/rich-text';
-const props = defineProps<{ readonly?: boolean }>();
+const props = defineProps<{ readonly?: boolean; compact?: boolean }>();
+defineEmits<{ 'add-photo': [] }>();
 const model = defineModel<string>({ required: true });
 const field = useTemplateRef('field');
 let lastEmitted: string | undefined;
@@ -173,7 +174,7 @@ watch(
       aria-label="本文の書式"
     >
       <button
-        v-for="tool in tools"
+        v-for="tool in compact ? tools.slice(0, 4) : tools"
         :key="tool.command"
         type="button"
         :aria-label="tool.label"
@@ -182,9 +183,31 @@ watch(
         @click="format(tool.command)"
         ><AppIcon :name="tool.icon"
       /></button>
-      <span class="tool-divider" aria-hidden="true"></span>
+      <template v-if="compact"
+        ><button
+          type="button"
+          aria-label="写真を追加"
+          @mousedown.prevent
+          @click="$emit('add-photo')"
+          ><AppIcon name="image" /></button
+        ><span class="tool-divider"></span
+        ><button
+          type="button"
+          aria-label="元に戻す"
+          @mousedown.prevent
+          @click="format('undo')"
+          ><AppIcon name="undo" /></button
+        ><button
+          type="button"
+          aria-label="やり直す"
+          @mousedown.prevent
+          @click="format('redo')"
+          ><AppIcon name="redo" /></button
+      ></template>
+      <span v-if="!compact" class="tool-divider" aria-hidden="true"></span>
       <button
         type="button"
+        v-if="!compact"
         aria-label="見出し"
         title="見出し"
         :aria-expanded="menu === 'heading'"
@@ -194,6 +217,7 @@ watch(
       /></button>
       <button
         type="button"
+        v-if="!compact"
         aria-label="文字サイズ"
         title="文字サイズ"
         :aria-expanded="menu === 'size'"

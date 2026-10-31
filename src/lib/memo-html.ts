@@ -32,3 +32,15 @@ export function splitMemoContent(html: string, attachments: string[] = []) {
   })
   return { html: container.innerHTML, images }
 }
+
+export function memoPreviewText(html: string): string {
+  const container = document.createElement('div')
+  container.innerHTML = cleanMemoHtml(html)
+  container
+    .querySelectorAll('br')
+    .forEach((lineBreak) => lineBreak.replaceWith(' '))
+  container
+    .querySelectorAll('p, div, h2, h3, li, blockquote')
+    .forEach((block) => block.append(' '))
+  return (container.textContent || '').replace(/\s+/g, ' ').trim()
+}

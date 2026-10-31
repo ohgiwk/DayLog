@@ -1,5 +1,5 @@
 :root {
-  --app-width: 430px;
+  --app-width: 760px;
   /* The safe area replaces the normal bottom padding; do not add both. */
   --tabbar-bottom-padding: max(8px, env(safe-area-inset-bottom, 0px));
   --tabbar-height: calc(74px + var(--tabbar-bottom-padding));
@@ -43,17 +43,6 @@ main {
   padding-bottom: calc(var(--tabbar-height) + 14px);
 }
 
-.tabbar {
-  bottom: 0;
-  width: min(var(--app-width), 100%);
-  background: var(--paper);
-  backdrop-filter: none;
-  height: var(--tabbar-height);
-  padding-bottom: var(--tabbar-bottom-padding);
-  padding-left: max(18px, env(safe-area-inset-left, 0px));
-  padding-right: max(18px, env(safe-area-inset-right, 0px));
-}
-
 @media (min-width: 431px) {
   body {
     padding: 0;
@@ -77,6 +66,12 @@ main {
 }
 
 .tabbar {
+  padding-bottom: var(--tabbar-bottom-padding);
+  height: var(--tabbar-height);
+  backdrop-filter: none;
+  background: var(--paper);
+  width: min(var(--app-width), 100%);
+  bottom: 0;
   padding-left: max(6px, env(safe-area-inset-left, 0px));
   padding-right: max(6px, env(safe-area-inset-right, 0px));
 }
@@ -90,12 +85,6 @@ main {
 .journal-page {
   padding-left: var(--page-left);
   padding-right: var(--page-right);
-}
-.home-hero {
-  margin-left: calc(-1 * var(--page-left));
-  margin-right: calc(-1 * var(--page-right));
-  padding-left: calc(var(--page-left) + 6px);
-  padding-right: calc(var(--page-right) + 6px);
 }
 .app-shell::before {
   content: '';
@@ -132,9 +121,6 @@ main {
 }
 
 /* Hide scrollbars without disabling scrolling on pages or nested panels. */
-* {
-  scrollbar-width: none;
-}
 
 *::-webkit-scrollbar {
   display: none;
@@ -143,17 +129,12 @@ main {
 }
 
 /* Let a visible diary photo continue behind the translucent system status bar. */
-.app-shell:has(.status-photo-visible)::before {
-  background: transparent;
-}
 
 /* New diaries have a paper background instead of the home header gradient. */
-:root:has(.journal-page) {
-  --status-bar: var(--paper);
-}
 
 /* Keep app labels from being selected on long press while preserving editing. */
 * {
+  scrollbar-width: none;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -167,10 +148,6 @@ textarea,
 }
 
 /* The new diary cover, including its empty placeholder, reaches behind the status bar. */
-.app-shell:has(.journal-page .photo-stage .cover-placeholder)::before,
-.app-shell:has(.journal-page .photo-stage .diary-cover)::before {
-  background: transparent;
-}
 
 /* Suppress iOS long-press link previews and callouts on app controls. */
 button,

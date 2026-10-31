@@ -2,6 +2,7 @@ import type { AppSettings } from '../types'
 
 export const settingsKey = 'daylog:v1:settings'
 const defaultSettings: AppSettings = {
+  seasonTheme: 'auto',
   notifications: true,
   location: true,
   weather: true,
@@ -18,7 +19,14 @@ export function loadSettings(): AppSettings {
     if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
       for (const key of Object.keys(defaultSettings) as (keyof AppSettings)[]) {
         const value = (stored as Record<string, unknown>)[key]
-        if (typeof value === 'boolean') settings[key] = value
+        if (key === 'seasonTheme') {
+          if (
+            ['auto', 'spring', 'summer', 'autumn', 'winter'].includes(
+              value as string,
+            )
+          )
+            settings.seasonTheme = value as AppSettings['seasonTheme']
+        } else if (typeof value === 'boolean') settings[key] = value
       }
     }
   } catch {

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import DiaryComposeHeader from '../components/DiaryComposeHeader.vue';
+import DiaryComposeMode from '../components/DiaryComposeMode.vue';
+
 import AppIcon from '../components/AppIcon.vue';
 
 import {
@@ -113,6 +116,12 @@ const stopUpdatePreparation = registerUpdatePreparation(
     stage.value !== 'questions' || !!editor.value?.applyAnswers(answers.value),
 );
 onBeforeUnmount(stopUpdatePreparation);
+function completeJournal() {
+  if (!editor.value || editor.value.busy || !editor.value.finishEditing())
+    return;
+  const saved = entries.value.find((entry) => entry.id === initial.value?.id);
+  if (saved) void router.replace(`/entry/${saved.id}`);
+}
 function back() {
   if (stage.value === 'finish') {
     router.push('/records');
@@ -127,18 +136,21 @@ function back() {
 </script>
 <template>
   <div ref="page" class="journal-page">
-    <header
-      class="journal-header"
-      :class="{ 'photo-header': stage === 'finish' }"
-      ><button
-        v-if="route.query.from !== 'write' || stage === 'questions'"
-        class="icon-button"
-        @click="back"
-        aria-label="戻る"
+    <DiaryComposeHeader
+      v-if="stage === 'finish'"
+      show-complete
+      :complete-disabled="
+        !editor || editor.busy || editor.saveState === 'empty'
+      "
+      @complete="completeJournal"
+      :status="editor?.saveStatus"
+      :state="editor?.saveState"
+      @back="back"
+    />
+    <header v-else class="journal-header"
+      ><button class="icon-button" aria-label="戻る" @click="back"
         ><AppIcon name="chevron-left" /></button
-      ><button v-if="stage === 'questions'" class="text-button" @click="skipAll"
-        >スキップ</button
-      ></header
+      ><button class="text-button" @click="skipAll">スキップ</button></header
     >
     <Transition name="question" mode="out-in">
       <section
@@ -162,111 +174,26 @@ function back() {
     </Transition>
     <section v-if="initial" v-show="stage === 'finish'" class="finish-pane"
       ><DiaryEditor ref="editor" :initial="initial" is-new
-    /></section>
-    <button
-      v-if="initial && stage === 'finish'"
-      type="button"
-      class="question-fab"
-      aria-label="質問モードを始める"
-      title="質問モードを始める"
-      :disabled="editor?.busy || switchingQuestions"
-      @click="startQuestions"
-      ><AppIcon name="message-question"
-    /></button>
+        ><template #mode
+          ><DiaryComposeMode
+            :disabled="editor?.busy || switchingQuestions"
+            @questions="startQuestions" /></template></DiaryEditor
+    ></section>
   </div>
 </template>
 
 <style scoped>
+.journal-page {
+  isolation: isolate;
+  position: relative;
+  background: var(--paper);
+}
 .journal-header > .text-button {
   grid-column: 3;
 }
-.journal-page {
-  position: relative;
-  isolation: isolate;
-}
-.journal-date {
-  margin: 0 0 16px;
-  font-size: 0.8rem;
-  line-height: 1.6;
-  color: var(--sub);
-}
-.finish-pane {
+.journal-page .finish-pane {
   padding-top: 0;
-  padding-bottom: 88px;
-}
-.photo-header {
-  position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 1px);
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
-  width: min(var(--app-width, 430px), 100%);
-  padding: 0 var(--page-right, 22px) 0 var(--page-left, 22px);
-  z-index: 30;
-  pointer-events: none;
-}
-.photo-header > button {
-  pointer-events: auto;
-}
-.photo-header .icon-button {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 50%;
-}
-.question-fab {
-  position: fixed;
-  z-index: 25;
-  right: max(20px, calc((100vw - var(--app-width, 430px)) / 2 + 20px));
-  bottom: calc(20px + env(safe-area-inset-bottom));
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--forest);
-  color: white;
-  box-shadow: 0 6px 20px rgba(36, 74, 61, 0.25);
-  cursor: pointer;
-}
-.question-fab :deep(.app-icon) {
-  width: 26px;
-  height: 26px;
-}
-.question-fab:hover {
-  filter: brightness(1.1);
-}
-.question-fab:focus-visible {
-  outline: 3px solid var(--sage);
-  outline-offset: 4px;
-}
-.question-fab:disabled {
-  opacity: 0.5;
-  cursor: wait;
-}
-
-.photo-header .icon-button {
-  transition:
-    transform 160ms ease,
-    background-color 160ms ease;
-}
-.photo-header .icon-button:active {
-  transform: scale(0.88);
-}
-@media (prefers-reduced-motion: reduce) {
-  .photo-header .icon-button {
-    transition: none;
-  }
-  .photo-header .icon-button:active {
-    transform: none;
-  }
-}
-:global(.reduce-motion) .photo-header .icon-button {
-  transition: none;
-}
-:global(.reduce-motion) .photo-header .icon-button:active {
-  transform: none;
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+  gap: 0;
 }
 </style>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import AppIcon from './AppIcon.vue';
 import LegacyMemoImport from './LegacyMemoImport.vue';
 import MemoConflictPreview from './MemoConflictPreview.vue';
 import { memoSyncState, syncMemos, chooseMemoConflict } from '../lib/memo-sync';
@@ -27,6 +28,26 @@ const memoConflicts = computed(() => {
 });
 const syncing = computed(() => syncState.busy || memoSyncState.busy);
 const pending = computed(() => syncState.pending + memoSyncState.pending);
+const needsAttention = computed(
+  () =>
+    !!(
+      syncState.error ||
+      memoSyncState.error ||
+      syncState.conflicts.length ||
+      memoSyncState.conflict
+    ),
+);
+const syncLabel = computed(() =>
+  syncing.value
+    ? '同期中…'
+    : needsAttention.value
+      ? '同期を確認'
+      : pending.value
+        ? '未同期あり'
+        : syncState.lastSynced && memoSyncState.lastSynced
+          ? '同期済み'
+          : '確認中',
+);
 async function syncAll() {
   await Promise.all([syncDiary(), syncMemos()]);
 }
@@ -75,44 +96,71 @@ function localEntry(date: string) {
 }
 </script>
 <template>
-  <section class="soft-card account-panel" aria-labelledby="account-title">
-    <div class="account-heading"
-      ><h2 id="account-title">アカウントと同期</h2
-      ><span v-if="account.user" class="sync-status" role="status">{{
-        syncing
-          ? '同期中…'
-          : pending
-            ? '未同期あり'
-            : syncState.lastSynced && memoSyncState.lastSynced
-              ? '同期済み'
-              : '確認中'
-      }}</span></div
-    >
-    <p v-if="!cloudConfigured"
-      >アカウント機能は準備中です。日記はこの端末に保存されています。</p
-    >
-    <template v-else>
-      <template v-if="account.user">
-        <p class="account-email">{{ account.user.email }}</p>
-        <p v-if="syncState.error" class="error" role="alert">{{
-          syncState.error
-        }}</p>
-        <p v-if="memoSyncState.error" class="error" role="alert">{{
-          memoSyncState.error
-        }}</p>
-        <div class="account-actions"
-          ><button
-            class="outline-button"
-            :disabled="busy || syncing"
-            @click="syncAll"
-            >今すぐ同期</button
-          ><button
-            class="text-button"
-            :disabled="busy || syncing"
-            @click="signOut"
-            >ログアウト</button
+  <section class="account-panel" aria-label="アカウントと同期">
+    <template v-if="cloudConfigured && account.user">
+      <div class="account-profile">
+        <span class="account-avatar" aria-hidden="true"
+          ><svg viewBox="0 0 64 64">
+            <circle cx="32" cy="24" r="11" />
+            <path d="M10 62v-5c0-13 9-22 22-22s22 9 22 22v5" /></svg
+        ></span>
+        <div class="account-identity"
+          ><p class="account-email">{{ account.user.email }}</p
+          ><span
+            class="sync-status"
+            :class="{ warning: needsAttention || pending, syncing }"
+            role="status"
+            ><AppIcon
+              :name="
+                syncing
+                  ? 'refresh'
+                  : needsAttention || pending
+                    ? 'save-error'
+                    : syncLabel === '同期済み'
+                      ? 'check'
+                      : 'more'
+              "
+            />{{ syncLabel }}</span
           ></div
         >
+        <button
+          type="button"
+          class="sync-button"
+          :disabled="busy || syncing"
+          @click="syncAll"
+          >{{ syncing ? '同期中…' : '今すぐ同期' }}</button
+        >
+      </div>
+      <button
+        type="button"
+        class="account-logout"
+        :disabled="busy || syncing"
+        @click="signOut"
+        ><AppIcon name="logout" /><span>ログアウト</span
+        ><AppIcon name="chevron-right"
+      /></button>
+      <p v-if="syncState.error" class="error" role="alert">{{
+        syncState.error
+      }}</p>
+      <p v-if="memoSyncState.error" class="error" role="alert">{{
+        memoSyncState.error
+      }}</p>
+    </template>
+    <p v-else-if="!cloudConfigured"
+      >アカウント機能は準備中です。日記はこの端末に保存されています。</p
+    >
+    <p v-else>アカウント情報を確認しています。</p>
+    <p v-if="message" role="status">{{ message }}</p
+    ><p v-if="error" class="error" role="alert">{{ error }}</p>
+  </section>
+  <Teleport
+    v-if="cloudConfigured && account.user"
+    defer
+    to="#settings-data-management"
+  >
+    <section class="account-data" aria-labelledby="account-data-title"
+      ><h2 id="account-data-title">データ管理</h2
+      ><div class="account-data-card">
         <details class="account-details">
           <summary>{{
             guestCount
@@ -219,49 +267,139 @@ function localEntry(date: string) {
             ></div
           >
         </article>
-      </template>
-    </template>
-    <p v-if="message" role="status">{{ message }}</p
-    ><p v-if="error" class="error" role="alert">{{ error }}</p>
-  </section>
+      </div></section
+    >
+  </Teleport>
 </template>
 <style scoped>
 .account-panel {
-  margin-bottom: 20px;
-  padding: 16px;
+  margin-bottom: 24px;
+  padding: 20px 24px 0;
+  border-radius: 18px;
+  background: var(--surface);
 }
-.account-heading {
+.account-profile {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 16px;
+  padding: 0 0 20px;
 }
-.account-heading h2 {
-  font-size: 0.9rem;
-  margin: 0;
+.account-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 64px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #e9e9e7;
+  overflow: hidden;
+}
+.account-avatar svg {
+  width: 100%;
+  height: 100%;
+  fill: #b1b4b3;
+}
+.account-identity {
+  flex: 1;
+  min-width: 0;
+}
+.account-panel .account-email {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
   line-height: 1.5;
 }
 .sync-status {
-  font-size: 0.68rem;
-  line-height: 1.5;
-  color: var(--forest);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--sub);
+  font-size: 0.85rem;
+}
+.sync-status .app-icon {
+  width: 20px;
+  height: 20px;
+  padding: 3px;
+  border-radius: 50%;
+  color: white;
+  background: #84ac96;
+}
+.sync-status.warning .app-icon {
+  background: #b18a54;
+}
+.sync-status.syncing .app-icon {
+  background: var(--forest);
+}
+.sync-button {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 12px;
+  padding: 14px 20px;
+  min-height: 48px;
   background: var(--mist);
-  border-radius: 20px;
-  padding: 4px 8px;
-  white-space: nowrap;
+  color: var(--forest);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.account-logout {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 62px;
+  padding: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font-size: 1rem;
+  text-align: left;
+  cursor: pointer;
+}
+.account-logout > .app-icon:last-child {
+  margin-left: auto;
+  color: #a0a5a3;
+  width: 18px;
 }
 .account-panel p {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   line-height: 1.6;
   color: var(--sub);
   margin: 8px 0;
 }
-.account-panel .account-email {
-  overflow-wrap: anywhere;
-  margin: 6px 0 10px;
-  font-size: 0.78rem;
-  color: var(--forest);
+.account-data h2 {
+  color: #69716f;
+  font-size: 0.9rem;
+  margin: 24px 4px 12px;
+}
+.account-data-card {
+  padding: 8px 20px 16px;
+  border-radius: 18px;
+  background: var(--surface);
+}
+@media (max-width: 460px) {
+  .account-panel {
+    padding: 16px 16px 0;
+  }
+  .account-profile {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .account-avatar {
+    flex-basis: 50px;
+    width: 50px;
+    height: 50px;
+  }
+  .account-panel .account-email {
+    font-size: 0.88rem;
+  }
+  .sync-button {
+    padding: 10px 14px;
+    font-size: 0.8rem;
+  }
 }
 .account-actions {
   display: flex;
@@ -291,8 +429,7 @@ function localEntry(date: string) {
   color: #9d594e;
 }
 .account-details {
-  margin-top: 10px;
-  border-top: 1px solid var(--line);
+  margin-top: 0;
 }
 .account-details > summary {
   min-height: 44px;
@@ -316,7 +453,8 @@ function localEntry(date: string) {
   font-size: 0.75rem;
   cursor: pointer;
 }
-.account-panel :is(button, summary):focus-visible {
+.account-panel :is(button, summary):focus-visible,
+.account-data :is(button, summary):focus-visible {
   outline: 2px solid var(--sage);
   outline-offset: 2px;
 }

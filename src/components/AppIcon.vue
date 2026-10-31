@@ -28,6 +28,7 @@ const paths: Record<string, string> = {
     'M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM7 2v4M17 2v4M3 10h18M7 15h10',
   'calendar-hidden':
     'M9 4h10a2 2 0 0 1 2 2v10M17 2v4M3 10h7M3 7v12a2 2 0 0 0 2 2h12M3 3l18 18',
+  logout: 'M9 3H4a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h5m6-16 7 7-7 7m-9-7h16',
   refresh:
     'M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 2M4 17l2 2a8 8 0 0 0 13-3',
   image:
@@ -47,10 +48,13 @@ const paths: Record<string, string> = {
   undo: 'm8 4-5 5 5 5M3 9h11a6 6 0 0 1 0 12',
   redo: 'm16 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12',
   'chevron-left': 'm15 5-7 7 7 7',
+  'chevron-down': 'm5 9 7 7 7-7',
   'chevron-right': 'm9 5 7 7-7 7',
   'arrow-right': 'M4 12h16m-6-6 6 6-6 6',
   plus: 'M12 5v14M5 12h14',
   close: 'm6 6 12 12M6 18 18 6',
+  flag: 'M5 21V3m0 1c5-4 9 4 14 0v10c-5 4-9-4-14 0',
+  'save-error': 'M12 7v6m0 4h.01M12 2 1 22h22L12 2Z',
   check: 'm5 12 4 4L19 6',
   home: 'm3 10 9-7 9 7v10H3V10m6 10v-7h6v7',
   records: 'M5 3h14v18H5V3m3 5h8M8 12h8M8 16h8',
@@ -60,6 +64,7 @@ const paths: Record<string, string> = {
   chart: 'M12 3v9h9M9 3.5a9 9 0 1 0 11.5 11.5',
   settings:
     'm9 3-.5 3-2 1-2.8-1-2 3.5L4 11v2l-2.3 1.5 2 3.5 2.8-1 2 1 .5 3h6l.5-3 2-1 2.8 1 2-3.5L20 13v-2l2.3-1.5-2-3.5-2.8 1-2-1L15 3H9m6 9a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
+  'folder-plus': 'M3 6h7l2 3h9v11H3V6Zm9 6v5m-2.5-2.5h5',
   folder: 'M3 6h7l2 3h9v11H3V6Z',
   camera: 'M3 7h4l2-3h6l2 3h4v13H3V7m13 6a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
   bell: 'M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3m5 3h4M12 2v2',
@@ -72,6 +77,11 @@ const paths: Record<string, string> = {
   minus: 'M5 12h14',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
   smile: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M8 9h.01M16 9h.01m-8 6q4 4 8 0',
+  'spring-leaf': 'M5 18C1 9 10 3 21 2c0 11-5 18-13 17l-4 3-1-1 3-4Z',
+  'maple-leaf':
+    'M12 2 9.5 9 5 5.5 6.5 12 2 11 5.5 16.5 10.5 18h3l5-1.5L22 11l-4.5 1L19 5.5 14.5 9Z',
+  snowflake:
+    'M12 2v20M3.34 7l17.32 10M3.34 17 20.66 7M9 4l3 3 3-3M9 20l3-3 3 3M3.6 10.6l4.1-1.1-1.1-4.1M17.4 18.6l-1.1-4.1 4.1-1.1M6.6 18.6l1.1-4.1-4.1-1.1M20.4 10.6l-4.1-1.1 1.1-4.1',
   leaf: 'M4 20C0 7 11 3 21 3c0 12-5 17-13 14M3 21 16 8',
   moon: 'M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z',
   sun: 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1',
@@ -84,6 +94,7 @@ const name = computed(() => aliases[props.name] || props.name);
 <template>
   <svg
     class="app-icon"
+    :class="{ 'season-solid': name === 'spring-leaf' || name === 'maple-leaf' }"
     viewBox="0 0 24 24"
     aria-hidden="true"
     focusable="false"
@@ -91,6 +102,16 @@ const name = computed(() => aliases[props.name] || props.name);
     <path
       :d="paths[name] || paths.circle"
       :stroke-dasharray="name === 'circle-dashed' ? '2 4' : undefined"
+    />
+    <path
+      v-if="name === 'spring-leaf'"
+      class="leaf-vein"
+      d="M6 18 16 8m-6 6-1-4m4 1 4 1"
+    />
+    <path
+      v-if="name === 'maple-leaf'"
+      class="maple-stem"
+      d="M12 17.5c0 2-.5 3-1.5 4.5"
     />
   </svg>
 </template>
@@ -106,5 +127,19 @@ const name = computed(() => aliases[props.name] || props.name);
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+.season-solid > path:first-child {
+  fill: currentColor;
+  stroke-width: 0.8;
+}
+.season-solid .leaf-vein {
+  fill: none;
+  stroke: var(--surface, white);
+  stroke-width: 1.2;
+}
+.season-solid .maple-stem {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
 }
 </style>

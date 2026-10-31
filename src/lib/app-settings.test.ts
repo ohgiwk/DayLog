@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { loadSettings, settingsKey } from './app-settings'
 afterEach(() => vi.unstubAllGlobals())
 const defaults = {
+  seasonTheme: 'auto',
   notifications: true,
   location: true,
   weather: true,
@@ -35,6 +36,21 @@ describe('resilient app settings', () => {
       largeText: true,
     })
     expect(getItem).toHaveBeenCalledWith(settingsKey)
+  })
+  it.each(['spring', 'summer', 'autumn', 'winter', 'auto'])(
+    'restores theme %s',
+    (seasonTheme) => {
+      vi.stubGlobal('localStorage', {
+        getItem: () => JSON.stringify({ seasonTheme }),
+      })
+      expect(loadSettings().seasonTheme).toBe(seasonTheme)
+    },
+  )
+  it('ignores invalid themes', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => JSON.stringify({ seasonTheme: 'invalid' }),
+    })
+    expect(loadSettings().seasonTheme).toBe('auto')
   })
   it('keeps startup usable when browser storage is unavailable', () => {
     vi.stubGlobal('localStorage', {

@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useStaggeredReveal } from '../lib/staggered-reveal';
+import { createDialogMotion } from '../lib/dialog-motion';
 import { useTemplateRef, computed, nextTick, onBeforeUnmount, ref } from 'vue';
+import { readRichText } from '../lib/rich-text';
 import AppIcon from '../components/AppIcon.vue';
 import EntryThumbnail from '../components/EntryThumbnail.vue';
 import type { DiaryEntry } from '../types';
@@ -9,16 +12,17 @@ import { entries, settings } from '../stores/diary';
 import { swipeDirection } from '../lib/calendar-swipe';
 import { calendarDays, dateKey, moveCalendar } from '../lib/records-calendar';
 
+const vReveal = useStaggeredReveal(() => settings.reducedMotion);
 const searchText = ref(''),
   selectedTag = ref('');
 const searchDialog = useTemplateRef('searchDialog');
 const searchButton = useTemplateRef('searchButton');
+const searchMotion = createDialogMotion();
 function openSearch() {
-  searchDialog.value?.showModal();
+  searchMotion.open(searchDialog.value);
 }
-function closeSearch() {
-  searchDialog.value?.close();
-  searchButton.value?.focus();
+async function closeSearch() {
+  if (await searchMotion.close(searchDialog.value)) searchButton.value?.focus();
 }
 const availableTags = computed(() =>
   [...new Set(entries.value.flatMap((entry) => entry.tags))].sort((a, b) =>
@@ -32,33 +36,6 @@ function clearSearch() {
   searchText.value = '';
   selectedTag.value = '';
 }
-function animateEntry(event: MouseEvent) {
-  if (
-    event.button !== 0 ||
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.altKey
-  )
-    return;
-  if (
-    settings.reducedMotion ||
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  )
-    return;
-  const row = event.currentTarget;
-  if (!(row instanceof HTMLElement)) return;
-  row.getAnimations().forEach((effect) => effect.cancel());
-  row.animate(
-    [
-      { transform: 'scale(1)' },
-      { transform: 'scale(.975)', offset: 0.35 },
-      { transform: 'scale(1)' },
-    ],
-    { duration: 240, easing: 'cubic-bezier(.2,.7,.3,1)' },
-  );
-}
-
 function entryPhotos(entry: DiaryEntry) {
   const cover = entry.thumbnailImageId || entry.imageIds[0];
   return cover ? [cover, ...entry.imageIds.filter((id) => id !== cover)] : [];
@@ -239,7 +216,7 @@ function preventSwipeClick(event: MouseEvent) {
 }
 onBeforeUnmount(() => {
   resetGesture();
-  searchDialog.value?.close();
+  searchMotion.dispose();
 });
 function entryOn(day: Date) {
   return entriesByDate.value.get(dateKey(day));
@@ -254,7 +231,7 @@ function entryOn(day: Date) {
       >
       <p class="eyebrow">YOUR MOMENTS</p>
       <div class="records-heading">
-        <h1>記録</h1>
+        <h1>DayLog</h1>
         <div class="records-header-actions">
           <button
             ref="calendarButton"
@@ -475,11 +452,19 @@ function entryOn(day: Date) {
       >
       <RouterLink
         v-for="e in filteredEntries"
+        v-reveal
         :key="e.id"
         :to="`/entry/${e.id}`"
         class="entry-row"
         :class="{ 'has-photo': entryPhotos(e).length }"
-        @click="animateEntry"
+        ><time class="timeline-date" :datetime="e.date"
+          ><small>{{ Number(e.date.slice(5, 7)) }}月</small
+          ><strong>{{ Number(e.date.slice(8, 10)) }}</strong
+          ><span>{{
+            new Intl.DateTimeFormat('ja-JP', { weekday: 'long' }).format(
+              new Date(e.date + 'T12:00'),
+            )
+          }}</span></time
         ><div
           v-if="entryPhotos(e).length"
           class="entry-photo"
@@ -510,6 +495,7 @@ function entryOn(day: Date) {
             }).format(new Date(e.date + 'T12:00'))
           }}</small
           ><h3>{{ e.guess.trim() || '無題の日記' }}</h3
+          ><p class="entry-excerpt">{{ readRichText(e.body).text }}</p
           ><p v-if="e.tags.length"
             ><span v-for="t in e.tags" :key="t">#{{ t }} </span></p
           ></div
@@ -539,11 +525,6 @@ function entryOn(day: Date) {
 </template>
 
 <style scoped>
-.records-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 .records-search-dialog {
   width: min(400px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
@@ -656,12 +637,6 @@ function entryOn(day: Date) {
   border-color: var(--forest);
   background: var(--forest);
   color: white;
-}
-
-.records-search {
-  display: grid;
-  gap: 12px;
-  margin: 16px 0 20px;
 }
 .records-search label {
   display: grid;
@@ -793,13 +768,6 @@ function entryOn(day: Date) {
 :global(.app-shell:has(.records-page)) {
   overflow: clip;
 }
-.records-header {
-  position: sticky;
-  top: env(safe-area-inset-top, 0px);
-  z-index: 15;
-  padding-bottom: 4px;
-  box-shadow: 0 6px 14px rgba(32, 50, 44, 0.06);
-}
 .entry-environment {
   grid-column: 1 / -1;
   display: flex;
@@ -817,9 +785,6 @@ function entryOn(day: Date) {
 .entry-weather,
 .entry-place {
   flex: 1;
-}
-.entry-weather,
-.entry-place {
   display: flex;
   align-items: flex-start;
   gap: 5px;
@@ -935,33 +900,25 @@ function entryOn(day: Date) {
 }
 .entry-row {
   grid-template-columns: 64px minmax(0, 1fr) 12px;
-  transform-origin: center;
   transition:
-    transform 140ms ease,
-    background-color 140ms ease,
-    box-shadow 140ms ease;
+    background-color 160ms ease,
+    border-color 160ms ease;
 }
-.entry-row:active {
-  transform: scale(0.975);
+.records-page .entry-row:active {
   background-color: var(--mist);
-  box-shadow: 0 3px 12px rgba(36, 74, 61, 0.1);
+  border-color: var(--sage);
 }
-.entry-row > b {
-  transition: transform 140ms ease;
+.records-page .entry-row:focus-visible {
+  background-color: var(--mist);
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
 }
-.entry-row:active > b {
-  transform: translateX(3px);
-}
-:global(.reduce-motion) .entry-row,
-:global(.reduce-motion) .entry-row > b {
+:global(.reduce-motion) .entry-row {
   transition: none;
-  transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .entry-row,
-  .entry-row > b {
+  .entry-row {
     transition: none;
-    transform: none;
   }
 }
 .entry-row > div {
@@ -971,15 +928,12 @@ function entryOn(day: Date) {
   overflow-wrap: anywhere;
 }
 .entry-row.has-photo {
-  grid-template-columns: minmax(0, 1fr) 12px;
   row-gap: 8px;
   padding: 0;
   overflow: hidden;
 }
 .entry-photo {
-  grid-column: 1 / -1;
   width: 100%;
-  aspect-ratio: 16 / 9;
   background: var(--mist);
   overflow: hidden;
 }
@@ -996,7 +950,6 @@ function entryOn(day: Date) {
   gap: 3px;
 }
 .entry-other-photos {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: minmax(0, 1fr);
   gap: 3px;
@@ -1032,11 +985,203 @@ function entryOn(day: Date) {
   margin-left: 14px;
   margin-bottom: 8px;
 }
-.entry-row h3 {
-  margin: 2px 0;
-}
 .entry-row.has-photo > b {
   margin-right: 14px;
   justify-self: end;
+}
+.records-header {
+  padding-bottom: 4px;
+  z-index: 15;
+  top: env(safe-area-inset-top, 0px);
+  position: sticky;
+  padding-top: 0;
+  box-shadow: none;
+  background: var(--paper);
+}
+.records-settings-link,
+.records-header > .eyebrow {
+  display: none;
+}
+.records-heading h1 {
+  font-family: Georgia, 'Yu Mincho', serif;
+  color: var(--forest);
+  font-size: 2.6rem;
+  letter-spacing: -0.04em;
+}
+.records-header-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+.records-header .search-toggle {
+  border: 0;
+  background: none;
+  width: 32px;
+  padding: 4px;
+}
+.records-search {
+  gap: 12px;
+  display: grid;
+  margin: 0 0 12px;
+}
+.recent-list {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 76px;
+}
+.records-page .entry-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin-left: 84px;
+  padding: 20px 18px;
+  border: 1px solid #eeebe5;
+  border-radius: 20px;
+  background: #fffefdcc;
+  overflow: visible;
+  box-shadow: none;
+}
+.timeline-date {
+  position: absolute;
+  left: -84px;
+  top: 18px;
+  width: 54px;
+  text-align: center;
+  font-family: 'Yu Mincho', serif;
+}
+.timeline-date small {
+  font-size: 0.8rem;
+}
+.timeline-date strong {
+  display: block;
+  color: var(--forest);
+  font:
+    3rem/1.05 Georgia,
+    serif;
+}
+.timeline-date span {
+  font-size: 0.7rem;
+}
+.records-page .entry-row::before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: -20px;
+  bottom: -20px;
+  width: 1px;
+  background: var(--line);
+}
+.records-page .entry-row::after {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 36px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--forest);
+  border: 2px solid var(--paper);
+}
+.records-page .entry-content,
+.records-page .entry-row.has-photo .entry-content {
+  margin: 0;
+  grid-column: 1;
+  grid-row: 1;
+}
+.records-page .entry-content > small,
+.records-page .entry-icon,
+.records-page .entry-row > b {
+  display: none;
+}
+.records-page .entry-row h3 {
+  font-family: 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+  font-size: 1.13rem;
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+.records-page .entry-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.86rem;
+  line-height: 1.85;
+  color: #555650;
+  margin: 0 0 14px;
+  white-space: pre-line;
+}
+.records-page .entry-content p span {
+  display: inline-block;
+  border-radius: 20px;
+  padding: 4px 10px;
+  background: var(--mist);
+  color: var(--forest);
+  font-size: 0.72rem;
+}
+.records-page .entry-row.has-photo {
+  grid-template-columns: minmax(0, 1fr) 39%;
+}
+.records-page .entry-photo {
+  grid-column: 2;
+  grid-row: 1;
+  aspect-ratio: 1;
+  height: clamp(96px, 24vw, 180px);
+  max-height: 180px;
+  min-height: 0;
+  align-self: start;
+  border-radius: 14px;
+  display: block;
+}
+.records-page .entry-other-photos {
+  display: none;
+}
+.records-page .entry-photo :deep(.entry-thumb) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.records-page .entry-environment,
+.records-page .entry-row.has-photo .entry-environment {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 0;
+  border: 0;
+}
+@media (max-width: 460px) {
+  .records-heading h1 {
+    font-size: 2rem;
+  }
+}
+@media (max-width: 460px) {
+  .records-page .entry-row.has-photo {
+    grid-template-columns: minmax(0, 1fr) 36%;
+    padding: 16px 12px;
+    gap: 8px;
+  }
+  .records-page .entry-photo {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 0;
+    height: clamp(88px, 25vw, 120px);
+    max-height: 120px;
+  }
+  .records-page .entry-row h3 {
+    font-size: 1rem;
+  }
+  .records-page .entry-excerpt {
+    font-size: 0.78rem;
+  }
+}
+.entry-row[data-reveal-pending] {
+  opacity: 0;
+}
+:global(.reduce-motion) .entry-row[data-reveal-pending] {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .entry-row[data-reveal-pending] {
+    opacity: 1;
+  }
 }
 </style>
