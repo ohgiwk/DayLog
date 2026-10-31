@@ -2,7 +2,7 @@ import { nextTick } from 'vue'
 
 // Match the 260 ms opacity fade used by routed pages without unmounting the editor.
 export async function fadeView(
-  element: HTMLElement | undefined,
+  element: HTMLElement | null | undefined,
   change: () => void | Promise<void>,
 ) {
   const reduced =

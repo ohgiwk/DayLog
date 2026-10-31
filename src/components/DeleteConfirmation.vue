@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { useTemplateRef, onBeforeUnmount, watch } from 'vue';
 import {
   deleteConfirmation,
   finishDeleteConfirmation,
 } from '../lib/delete-confirmation';
 import { useRouter } from 'vue-router';
 import TrashIcon from './TrashIcon.vue';
-const dialog = ref<HTMLDialogElement>();
-const cancelButton = ref<HTMLButtonElement>();
+const dialog = useTemplateRef('dialog');
+const cancelButton = useTemplateRef('cancelButton');
 watch(
   deleteConfirmation,
   (request) => {

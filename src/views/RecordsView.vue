@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
+import { useTemplateRef, computed, nextTick, onBeforeUnmount, ref } from 'vue';
 import AppIcon from '../components/AppIcon.vue';
 import EntryThumbnail from '../components/EntryThumbnail.vue';
 import type { DiaryEntry } from '../types';
@@ -11,8 +11,8 @@ import { calendarDays, dateKey, moveCalendar } from '../lib/records-calendar';
 
 const searchText = ref(''),
   selectedTag = ref('');
-const searchDialog = ref<HTMLDialogElement>();
-const searchButton = ref<HTMLButtonElement>();
+const searchDialog = useTemplateRef('searchDialog');
+const searchButton = useTemplateRef('searchButton');
 function openSearch() {
   searchDialog.value?.showModal();
 }
@@ -65,7 +65,7 @@ function entryPhotos(entry: DiaryEntry) {
 }
 const mode = 'month' as const;
 const calendarOpen = ref(false);
-const calendarButton = ref<HTMLButtonElement>();
+const calendarButton = useTemplateRef('calendarButton');
 function toggleCalendar() {
   resetGesture();
   calendarOpen.value = !calendarOpen.value;
@@ -96,8 +96,8 @@ const monthFormat = new Intl.DateTimeFormat('ja-JP', {
   month: 'long',
 });
 const title = computed(() => monthFormat.format(anchor.value));
-const viewport = ref<HTMLElement>();
-const track = ref<HTMLElement>();
+const viewport = useTemplateRef('viewport');
+const track = useTemplateRef('track');
 const dragging = ref(false),
   settling = ref(false);
 let offset = 0;

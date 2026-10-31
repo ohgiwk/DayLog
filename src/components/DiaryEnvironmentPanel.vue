@@ -6,13 +6,10 @@ import { settings } from '../stores/diary';
 import { recordEnvironment, weatherLabel } from '../lib/diary-weather';
 import type { DiaryEnvironment } from '../types';
 const props = defineProps<{
-  modelValue?: DiaryEnvironment;
   date: string;
   readonly?: boolean;
 }>();
-const emit = defineEmits<{
-  'update:modelValue': [value: DiaryEnvironment | undefined];
-}>();
+const modelValue = defineModel<DiaryEnvironment>();
 type Kind = 'location' | 'weather';
 const loading = ref<Kind | null>(null),
   error = ref('');
@@ -31,13 +28,13 @@ async function record(kind: Kind) {
       controller.signal,
     );
     if (!disposed)
-      emit('update:modelValue', {
-        ...props.modelValue,
+      modelValue.value = {
+        ...modelValue.value,
         recordedAt: result.recordedAt,
         ...(kind === 'location'
           ? { place: result.place }
           : { weather: result.weather }),
-      });
+      };
   } catch (cause) {
     if (!disposed)
       error.value = controller.signal.aborted
@@ -52,10 +49,10 @@ async function record(kind: Kind) {
 }
 function remove(kind: Kind) {
   error.value = '';
-  const next = { ...props.modelValue } as DiaryEnvironment;
+  const next = { ...modelValue.value } as DiaryEnvironment;
   if (kind === 'location') delete next.place;
   else delete next.weather;
-  emit('update:modelValue', next.place || next.weather ? next : undefined);
+  modelValue.value = next.place || next.weather ? next : undefined;
 }
 onBeforeUnmount(() => {
   disposed = true;

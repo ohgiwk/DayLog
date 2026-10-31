@@ -2,7 +2,15 @@
 import AppSplash from './components/AppSplash.vue';
 import AppIcon from './components/AppIcon.vue';
 
-import { computed, onMounted, onBeforeUnmount, provide, ref, watch } from 'vue';
+import {
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  onUnmounted,
+  provide,
+  ref,
+  watch,
+} from 'vue';
 import { authRedirect, isAuthPath } from './lib/auth-navigation';
 import { account } from './stores/account';
 import {
@@ -36,8 +44,13 @@ const authScreen = computed(() => isAuthPath(route.path));
 setEditingCheck(
   () => route.path === '/journal' || route.path.startsWith('/entry/'),
 );
-startSync();
-startMemoSync();
+const stopSync = startSync();
+const stopMemoSync = startMemoSync();
+// Stop after child cleanup, which may schedule one final sync.
+onUnmounted(() => {
+  stopSync();
+  stopMemoSync();
+});
 watch(
   () => account.user?.id,
   () => {

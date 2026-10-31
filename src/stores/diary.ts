@@ -13,6 +13,9 @@ export const diaryScope = reactive({ userId: '', generation: 0 })
 let onChange = () => {}
 export function onDiaryChange(callback: () => void) {
   onChange = callback
+  return () => {
+    if (onChange === callback) onChange = () => {}
+  }
 }
 const accountKey = (id: string) => `daylog:v2:account:${id}`
 export function readAccountSnapshot(id = diaryScope.userId): DiarySnapshot {

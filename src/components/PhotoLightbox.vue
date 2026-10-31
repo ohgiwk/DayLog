@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  useTemplateRef,
   computed,
   nextTick,
   onBeforeUnmount,
@@ -14,8 +15,8 @@ const props = defineProps<{
   origin?: { left: number; top: number; width: number; height: number };
 }>();
 const emit = defineEmits<{ close: [] }>();
-const dialog = ref<HTMLDialogElement>();
-const viewport = ref<HTMLElement>();
+const dialog = useTemplateRef('dialog');
+const viewport = useTemplateRef('viewport');
 const selectedId = ref(props.initialId);
 const index = computed(() =>
   Math.max(

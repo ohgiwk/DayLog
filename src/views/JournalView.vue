@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import AppIcon from '../components/AppIcon.vue';
 
-import { computed, nextTick, onMounted, onBeforeUnmount, ref } from 'vue';
+import {
+  useTemplateRef,
+  computed,
+  nextTick,
+  onMounted,
+  onBeforeUnmount,
+  ref,
+} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   baseQuestions,
@@ -19,9 +26,9 @@ const router = useRouter(),
   answers = ref<Record<string, string>>({}),
   stage = ref<'questions' | 'finish'>('finish'),
   initial = ref<DiaryEntry>();
-const page = ref<HTMLElement>();
+const page = useTemplateRef('page');
 const switchingQuestions = ref(false);
-const editor = ref<InstanceType<typeof DiaryEditor>>();
+const editor = useTemplateRef('editor');
 const route = useRoute();
 const targetDate = journalDate(route.query.date);
 onMounted(() => {

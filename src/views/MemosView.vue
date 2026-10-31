@@ -8,6 +8,7 @@ import AppIcon from '../components/AppIcon.vue';
 import { confirmDelete } from '../lib/delete-confirmation';
 import TrashIcon from '../components/TrashIcon.vue';
 import {
+  useTemplateRef,
   computed,
   nextTick,
   onBeforeUnmount,
@@ -85,24 +86,24 @@ const loading = ref(true),
 const folderId = ref(''),
   draft = ref<Memo | null>(null),
   dirty = ref(false);
-const editor = ref<HTMLElement>();
+const editor = useTemplateRef('editor');
 const folderName = ref(''),
   memoTitle = ref(''),
   targetFolder = ref('');
 const createKind = ref<'folder' | 'note' | 'rename'>('folder');
-const createDialog = ref<HTMLDialogElement>(),
-  nameInput = ref<HTMLInputElement>();
+const createDialog = useTemplateRef('createDialog'),
+  nameInput = useTemplateRef('nameInput');
 const dialogOpen = ref(false);
 const formatMenuOpen = ref(false);
-const formatMenu = ref<HTMLElement>(),
-  formatMenuButton = ref<HTMLButtonElement>();
+const formatMenu = useTemplateRef('formatMenu'),
+  formatMenuButton = useTemplateRef('formatMenuButton');
 function closeFormatMenu(restoreFocus = false) {
   formatMenuOpen.value = false;
   if (restoreFocus) formatMenuButton.value?.focus();
 }
 const folderMenuOpen = ref(false);
-const folderMenu = ref<HTMLElement>(),
-  folderMenuButton = ref<HTMLButtonElement>();
+const folderMenu = useTemplateRef('folderMenu'),
+  folderMenuButton = useTemplateRef('folderMenuButton');
 function closeFolderMenu(restoreFocus = false) {
   folderMenuOpen.value = false;
   if (restoreFocus) folderMenuButton.value?.focus();

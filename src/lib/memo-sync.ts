@@ -145,8 +145,10 @@ export async function chooseMemoConflict(choice: 'local' | 'remote') {
   )
   await syncMemos()
 }
+let stopAutomaticSync: (() => void) | undefined
 export function startMemoSync() {
-  onMemoChange((id, local) => {
+  stopAutomaticSync?.()
+  const stopChanges = onMemoChange((id, local) => {
     if (id === memoOwner()) {
       void refreshMemoSyncStatus().catch(() => {})
       if (local) scheduleMemoSync()
@@ -154,11 +156,27 @@ export function startMemoSync() {
   })
   window.addEventListener('online', scheduleMemoSync)
   window.addEventListener('focus', scheduleMemoSync)
-  document.addEventListener('visibilitychange', () => {
+  const onVisibilityChange = () => {
     if (!document.hidden) scheduleMemoSync()
-  })
-  window.setInterval(() => {
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  const interval = window.setInterval(() => {
     if (!document.hidden) void syncMemos()
   }, 30000)
   scheduleMemoSync()
+  let stopped = false
+  const stop = () => {
+    if (stopped) return
+    stopped = true
+    stopChanges()
+    window.removeEventListener('online', scheduleMemoSync)
+    window.removeEventListener('focus', scheduleMemoSync)
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.clearInterval(interval)
+    clearTimeout(timer)
+    timer = undefined
+    if (stopAutomaticSync === stop) stopAutomaticSync = undefined
+  }
+  stopAutomaticSync = stop
+  return stop
 }

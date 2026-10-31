@@ -8,6 +8,9 @@ export function setImageScope(value: string) {
 }
 export function setImageDownloader(value: typeof download) {
   download = value
+  return () => {
+    if (download === value) download = undefined
+  }
 }
 function access<T>(
   owner: string,

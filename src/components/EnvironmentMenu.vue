@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useTemplateRef, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import AppIcon from './AppIcon.vue';
 import TrashIcon from './TrashIcon.vue';
 const props = defineProps<{
@@ -10,10 +10,10 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ update: []; remove: [] }>();
 const open = ref(false),
-  root = ref<HTMLElement>(),
-  trigger = ref<HTMLButtonElement>(),
-  first = ref<HTMLButtonElement>(),
-  last = ref<HTMLButtonElement>();
+  root = useTemplateRef('root'),
+  trigger = useTemplateRef('trigger'),
+  first = useTemplateRef('first'),
+  last = useTemplateRef('last');
 function close(focus = false) {
   open.value = false;
   if (focus) trigger.value?.focus();

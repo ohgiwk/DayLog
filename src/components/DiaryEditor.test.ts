@@ -302,3 +302,19 @@ it('removes tags inside the dialog and offers them again when used by another di
   ).not.toBeNull()
   expect(document.querySelector('.tag-dialog')?.hasAttribute('open')).toBe(true)
 })
+
+it('saves the final answer update once without persisting intermediate fields', async () => {
+  await mount()
+  storage.save.mockClear()
+  const editor = app!._instance!.exposed!
+  expect(editor.applyAnswers({ mood: '1', condition: '2', work: 'yes' })).toBe(
+    true,
+  )
+  expect(storage.save).toHaveBeenCalledTimes(1)
+  expect(storage.save.mock.calls[0][0]).toMatchObject({
+    mood: 1,
+    condition: 2,
+    answers: { mood: '1', condition: '2', work: 'yes' },
+    tags: ['仕事・勉強'],
+  })
+})

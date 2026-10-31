@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { useTemplateRef, onMounted, ref, watch } from 'vue';
 import AppIcon from './AppIcon.vue';
 import { blockShortcut, inlineShortcut } from '../lib/markdown-shortcuts';
 import {
@@ -7,9 +7,9 @@ import {
   sanitizeRichText,
   writeRichText,
 } from '../lib/rich-text';
-const props = defineProps<{ modelValue: string; readonly?: boolean }>();
-const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
-const field = ref<HTMLDivElement>();
+const props = defineProps<{ readonly?: boolean }>();
+const model = defineModel<string>({ required: true });
+const field = useTemplateRef('field');
 let lastEmitted: string | undefined;
 let selection: Range | undefined;
 function rememberSelection() {
@@ -45,7 +45,7 @@ function load() {
   if (!field.value) return;
   lastEmitted = undefined;
   selection = undefined;
-  const value = readRichText(props.modelValue);
+  const value = readRichText(model.value);
   if (value.html !== undefined)
     field.value.innerHTML = sanitizeRichText(value.html);
   else field.value.textContent = value.text;
@@ -54,7 +54,7 @@ function update() {
   if (props.readonly) return;
   if (!field.value) return;
   lastEmitted = writeRichText(field.value.innerHTML, field.value.innerText);
-  emit('update:modelValue', lastEmitted);
+  model.value = lastEmitted;
 }
 function format(command: string, value?: string) {
   menu.value = null;
@@ -158,7 +158,7 @@ function paste(event: ClipboardEvent) {
 }
 onMounted(load);
 watch(
-  () => props.modelValue,
+  () => model.value,
   (value) => {
     if (value !== lastEmitted) load();
   },

@@ -7,6 +7,7 @@ import DiaryCover from './DiaryCover.vue';
 import RichTextEditor from './RichTextEditor.vue';
 
 import {
+  useTemplateRef,
   computed,
   onBeforeUnmount,
   onMounted,
@@ -43,8 +44,8 @@ const titleInput = computed({
     draft.guess = value;
   },
 });
-const tagDialog = ref<HTMLDialogElement>();
-const tagTrigger = ref<HTMLButtonElement>();
+const tagDialog = useTemplateRef('tagDialog');
+const tagTrigger = useTemplateRef('tagTrigger');
 const tagInput = ref('');
 const suggestedTags = computed(() =>
   [
@@ -102,8 +103,8 @@ function openPhoto(id: string, event: MouseEvent) {
   };
   lightbox.value = id;
 }
-const photoPicker = ref<HTMLInputElement>();
-const cameraPicker = ref<HTMLInputElement>();
+const photoPicker = useTemplateRef('photoPicker');
+const cameraPicker = useTemplateRef('cameraPicker');
 const photos = ref<{ id: string; url: string }[]>([]);
 const coverId = computed(() =>
   draft.imageIds.includes(draft.thumbnailImageId || '')
@@ -135,7 +136,7 @@ const saveError = ref(''),
 let unsaved = false,
   disposed = false,
   deleted = false,
-  changingPhoto = false;
+  batchingChanges = false;
 let persisted = !props.isNew;
 let pending: Promise<void> | undefined;
 function save() {
@@ -169,7 +170,7 @@ function save() {
 watch(
   () => [draft.guess, draft.body, draft.tomorrow, draft.thumbnailImageId],
   () => {
-    if (!changingPhoto) save();
+    if (!batchingChanges) save();
   },
   { flush: 'sync' },
 );
@@ -249,7 +250,7 @@ async function removePhoto(id: string) {
   const previous = [...draft.imageIds],
     thumbnail = draft.thumbnailImageId;
   const deletingCover = coverId.value === id;
-  changingPhoto = true;
+  batchingChanges = true;
   draft.imageIds = draft.imageIds.filter((value) => value !== id);
   if (deletingCover) draft.thumbnailImageId = draft.imageIds[0];
   const saved = save();
@@ -257,7 +258,7 @@ async function removePhoto(id: string) {
     draft.imageIds = previous;
     draft.thumbnailImageId = thumbnail;
   }
-  changingPhoto = false;
+  batchingChanges = false;
   if (!saved) return;
   const photo = photos.value.find((p) => p.id === id);
   if (photo) URL.revokeObjectURL(photo.url);
@@ -289,7 +290,12 @@ function setEnvironment(value: DiaryEnvironment | undefined) {
   save();
 }
 function applyAnswers(answers: Record<string, string>) {
-  Object.assign(draft, editAnswers(draft, answers));
+  batchingChanges = true;
+  try {
+    Object.assign(draft, editAnswers(draft, answers));
+  } finally {
+    batchingChanges = false;
+  }
   return save();
 }
 defineExpose({

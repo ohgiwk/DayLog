@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  useTemplateRef,
   computed,
   nextTick,
   onMounted,
@@ -41,8 +42,8 @@ function toggleEditing() {
   void router.replace({ path: route.path, query });
   closeMenu();
 }
-const editor = ref<InstanceType<typeof DiaryEditor>>();
-const page = ref<HTMLElement>();
+const editor = useTemplateRef('editor');
+const page = useTemplateRef('page');
 const switchingQuestions = ref(false);
 const questionsOpen = ref(false);
 const questionAnswers = ref<Record<string, string>>({});
@@ -87,9 +88,9 @@ async function finishQuestions(answers: Record<string, string>) {
   }
 }
 const menuOpen = ref(false);
-const menuRoot = ref<HTMLElement>();
-const menuButton = ref<HTMLButtonElement>();
-const deleteButton = ref<HTMLButtonElement>();
+const menuRoot = useTemplateRef('menuRoot');
+const menuButton = useTemplateRef('menuButton');
+const deleteButton = useTemplateRef('deleteButton');
 function closeMenu(restoreFocus = false) {
   menuOpen.value = false;
   if (restoreFocus) menuButton.value?.focus();

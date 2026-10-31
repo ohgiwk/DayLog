@@ -208,9 +208,11 @@ export async function importGuestDiaries() {
   await syncDiary()
   return `${count}件を取り込みました。${skipped ? `同じ日付の${skipped}件は元の端末データに残しています。` : ''}`
 }
+let stopAutomaticSync: (() => void) | undefined
 export function startSync() {
-  onDiaryChange(scheduleSync)
-  setImageDownloader(async (imageId, id) => {
+  stopAutomaticSync?.()
+  const stopChanges = onDiaryChange(scheduleSync)
+  const stopDownloads = setImageDownloader(async (imageId, id) => {
     if (!supabase || account.user?.id !== id) return undefined
     const { data, error } = await supabase.storage
       .from('daylog-photos')
@@ -226,12 +228,29 @@ export function startSync() {
   })
   window.addEventListener('online', scheduleSync)
   window.addEventListener('focus', scheduleSync)
-  document.addEventListener('visibilitychange', () => {
+  const onVisibilityChange = () => {
     if (!document.hidden) scheduleSync()
-  })
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange)
   // Poll only while visible. Pushes are debounced separately after local edits.
-  window.setInterval(() => {
+  const interval = window.setInterval(() => {
     if (!document.hidden) void syncDiary()
   }, 30000)
   scheduleSync()
+  let stopped = false
+  const stop = () => {
+    if (stopped) return
+    stopped = true
+    stopChanges()
+    stopDownloads()
+    window.removeEventListener('online', scheduleSync)
+    window.removeEventListener('focus', scheduleSync)
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.clearInterval(interval)
+    clearTimeout(timer)
+    timer = undefined
+    if (stopAutomaticSync === stop) stopAutomaticSync = undefined
+  }
+  stopAutomaticSync = stop
+  return stop
 }
