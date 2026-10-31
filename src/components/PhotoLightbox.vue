@@ -120,6 +120,47 @@ function pointerEnd(event: PointerEvent) {
     viewport.value.releasePointerCapture(event.pointerId);
   goTo(index.value);
 }
+let backdropPress: { x: number; y: number } | undefined;
+let suppressBackdropClick = false;
+function trackBackdropPress(event: PointerEvent) {
+  if (event.button !== 0) return;
+  backdropPress = { x: event.clientX, y: event.clientY };
+  suppressBackdropClick = false;
+}
+function trackBackdropMove(event: PointerEvent) {
+  if (
+    backdropPress &&
+    Math.hypot(
+      event.clientX - backdropPress.x,
+      event.clientY - backdropPress.y,
+    ) > 8
+  )
+    suppressBackdropClick = true;
+}
+function endBackdropPress(event: PointerEvent) {
+  trackBackdropMove(event);
+  if (event.type === 'pointercancel') suppressBackdropClick = true;
+  backdropPress = undefined;
+}
+function backdropClick(event: MouseEvent) {
+  if (
+    suppressBackdropClick ||
+    (event.target instanceof Element && event.target.closest('button'))
+  )
+    return;
+  // A mouse drag captures clicks on the viewport, so inspect the rendered images too.
+  const onImage = slides().some((slide) => {
+    const bounds = slide.querySelector('img')?.getBoundingClientRect();
+    return (
+      bounds &&
+      event.clientX >= bounds.left &&
+      event.clientX <= bounds.right &&
+      event.clientY >= bounds.top &&
+      event.clientY <= bounds.bottom
+    );
+  });
+  if (!onImage) close();
+}
 function close() {
   if (closing.value) return;
   const reduced =
@@ -184,7 +225,11 @@ onBeforeUnmount(() => {
       @animationend="finishClose"
       @close="emit('close')"
       @keydown="keydown"
-      @click.self="close"
+      @pointerdown.capture="trackBackdropPress"
+      @pointermove.capture="trackBackdropMove"
+      @pointerup.capture="endBackdropPress"
+      @pointercancel.capture="endBackdropPress"
+      @click="backdropClick"
     >
       <div
         ref="viewport"
@@ -324,11 +369,13 @@ onBeforeUnmount(() => {
 }
 .photo-viewer img {
   display: block;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  height: auto;
   max-height: 100%;
   object-fit: contain;
   border-radius: 6px;
-  pointer-events: none;
+  pointer-events: auto;
 }
 .viewer-slide img {
   transform-origin: left center;

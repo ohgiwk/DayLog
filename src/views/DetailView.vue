@@ -218,6 +218,11 @@ async function removeDiary() {
 </template>
 
 <style scoped>
+/* Clip without creating a scroll container that doubles the iOS sticky inset. */
+:global(.app-shell:has(.detail-page)) {
+  overflow: clip;
+}
+
 .detail-page {
   position: relative;
   isolation: isolate;
