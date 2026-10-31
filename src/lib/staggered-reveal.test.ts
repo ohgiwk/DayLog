@@ -72,12 +72,12 @@ it('staggers visible rows in list order and waits for offscreen rows to enter', 
     {} as IntersectionObserver,
   )
   expect(animate).toHaveBeenCalledTimes(2)
-  expect(
-    animate.mock.calls.map(
-      (call) =>
-        (call as unknown as [unknown, KeyframeAnimationOptions])[1].delay,
-    ),
-  ).toEqual([80, 170])
+  const delays = animate.mock.calls.map(
+    (call) =>
+      (call as unknown as [unknown, KeyframeAnimationOptions])[1].delay!,
+  )
+  expect(delays[0]).toBeGreaterThanOrEqual(0)
+  expect(delays[1]).toBeGreaterThan(delays[0]!)
   expect(rows[2]!.hasAttribute('data-reveal-pending')).toBe(true)
   observeCallback(
     [

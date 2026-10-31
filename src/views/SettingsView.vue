@@ -15,9 +15,7 @@ function toggle(key: keyof typeof settings) {
 </script>
 <template>
   <div class="page settings-page"
-    ><header class="page-header sticky-page-header"
-      ><p class="eyebrow">YOUR SPACE</p><h1>設定</h1
-      ><p>あなたにとって、心地よい場所に。</p></header
+    ><header class="page-header sticky-page-header"><h1>設定</h1></header
     ><AccountPanel />
     <section class="settings-group season-settings">
       <h2>表示・テーマ</h2>

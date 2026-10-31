@@ -5,13 +5,13 @@ import { useTemplateRef, computed, nextTick, onBeforeUnmount, ref } from 'vue';
 import { readRichText } from '../lib/rich-text';
 import AppIcon from '../components/AppIcon.vue';
 import EntryThumbnail from '../components/EntryThumbnail.vue';
-import type { DiaryEntry } from '../types';
 import { weatherLabel } from '../lib/diary-weather';
 import { filterRecords } from '../lib/records-search';
 import { entries, settings } from '../stores/diary';
 import { swipeDirection } from '../lib/calendar-swipe';
 import { calendarDays, dateKey, moveCalendar } from '../lib/records-calendar';
 
+const weekdayFormat = new Intl.DateTimeFormat('ja-JP', { weekday: 'long' });
 const vReveal = useStaggeredReveal(() => settings.reducedMotion);
 const searchText = ref(''),
   selectedTag = ref('');
@@ -35,10 +35,6 @@ const filteredEntries = computed(() =>
 function clearSearch() {
   searchText.value = '';
   selectedTag.value = '';
-}
-function entryPhotos(entry: DiaryEntry) {
-  const cover = entry.thumbnailImageId || entry.imageIds[0];
-  return cover ? [cover, ...entry.imageIds.filter((id) => id !== cover)] : [];
 }
 const mode = 'month' as const;
 const calendarOpen = ref(false);
@@ -226,10 +222,6 @@ function entryOn(day: Date) {
 <template>
   <div class="page records-page">
     <header class="page-header records-header">
-      <RouterLink to="/settings" class="records-settings-link" aria-label="設定"
-        ><AppIcon name="settings" />設定</RouterLink
-      >
-      <p class="eyebrow">YOUR MOMENTS</p>
       <div class="records-heading">
         <h1>DayLog</h1>
         <div class="records-header-actions">
@@ -456,50 +448,23 @@ function entryOn(day: Date) {
         :key="e.id"
         :to="`/entry/${e.id}`"
         class="entry-row"
-        :class="{ 'has-photo': entryPhotos(e).length }"
+        :class="{ 'has-photo': e.thumbnailImageId || e.imageIds[0] }"
         ><time class="timeline-date" :datetime="e.date"
           ><small>{{ Number(e.date.slice(5, 7)) }}月</small
           ><strong>{{ Number(e.date.slice(8, 10)) }}</strong
           ><span>{{
-            new Intl.DateTimeFormat('ja-JP', { weekday: 'long' }).format(
-              new Date(e.date + 'T12:00'),
-            )
+            weekdayFormat.format(new Date(e.date + 'T12:00'))
           }}</span></time
-        ><div
-          v-if="entryPhotos(e).length"
-          class="entry-photo"
-          :class="{ 'photo-collage': entryPhotos(e).length > 1 }"
-          ><div class="entry-cover-photo"
-            ><EntryThumbnail
-              :id="entryPhotos(e)[0]"
-              alt="日記の代表写真" /></div
-          ><div
-            v-if="entryPhotos(e).length > 1"
-            class="entry-other-photos"
-            :class="{ 'many-photos': entryPhotos(e).length > 5 }"
-            ><div
-              v-for="id in entryPhotos(e).slice(1)"
-              :key="id"
-              class="entry-small-photo"
-              ><EntryThumbnail :id="id" /></div></div></div
-        ><div class="entry-icon" v-if="!entryPhotos(e).length"
-          ><AppIcon
-            :name="['moon', 'leaf', 'sun', 'cloud', 'leaf'][e.mood - 1]" /></div
+        ><div v-if="e.thumbnailImageId || e.imageIds[0]" class="entry-photo"
+          ><EntryThumbnail
+            :id="e.thumbnailImageId || e.imageIds[0]"
+            alt="日記の代表写真" /></div
         ><div class="entry-content"
-          ><small>{{
-            new Intl.DateTimeFormat('ja-JP', {
-              year: 'numeric',
-              month: 'numeric',
-              day: 'numeric',
-              weekday: 'short',
-            }).format(new Date(e.date + 'T12:00'))
-          }}</small
           ><h3>{{ e.guess.trim() || '無題の日記' }}</h3
           ><p class="entry-excerpt">{{ readRichText(e.body).text }}</p
           ><p v-if="e.tags.length"
             ><span v-for="t in e.tags" :key="t">#{{ t }} </span></p
           ></div
-        ><b><AppIcon name="chevron-right" /></b
         ><div
           v-if="e.environment?.weather || e.environment?.place"
           class="entry-environment"
@@ -589,12 +554,6 @@ function entryOn(day: Date) {
   outline: 2px solid var(--sage);
   outline-offset: 2px;
 }
-
-.search-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 .search-controls {
   display: grid;
   gap: 14px;
@@ -602,13 +561,6 @@ function entryOn(day: Date) {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
-}
-.filter-active {
-  padding: 3px 7px;
-  border-radius: 12px;
-  background: var(--mist);
-  font-size: 0.65rem;
-  color: var(--forest);
 }
 
 .tag-filter p {
@@ -638,23 +590,6 @@ function entryOn(day: Date) {
   background: var(--forest);
   color: white;
 }
-.records-search label {
-  display: grid;
-  gap: 6px;
-  font-size: 0.75rem;
-  color: var(--sub);
-}
-.records-search input {
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-  padding: 10px 12px;
-  color: var(--text);
-  font-size: 16px;
-}
 .search-summary {
   display: flex;
   align-items: center;
@@ -672,26 +607,6 @@ function entryOn(day: Date) {
 .records-search :is(input, button):focus-visible {
   outline: 2px solid var(--sage);
   outline-offset: 2px;
-}
-
-.records-settings-link {
-  position: absolute;
-  top: 12px;
-  right: var(--page-right);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 8px 12px;
-  border-radius: 14px;
-  background: var(--surface);
-  color: var(--forest);
-  font-size: 0.8rem;
-  text-decoration: none;
-}
-.records-settings-link:focus-visible {
-  outline: 2px solid var(--forest);
-  outline-offset: 3px;
 }
 
 .calendar-reveal {
@@ -778,9 +693,6 @@ function entryOn(day: Date) {
   font-size: 0.7rem;
   line-height: 1.5;
   color: var(--sub);
-}
-.entry-row.has-photo .entry-environment {
-  margin: 0 14px 14px;
 }
 .entry-weather,
 .entry-place {
@@ -899,7 +811,6 @@ function entryOn(day: Date) {
   outline-offset: -2px;
 }
 .entry-row {
-  grid-template-columns: 64px minmax(0, 1fr) 12px;
   transition:
     background-color 160ms ease,
     border-color 160ms ease;
@@ -927,46 +838,10 @@ function entryOn(day: Date) {
 .entry-row p {
   overflow-wrap: anywhere;
 }
-.entry-row.has-photo {
-  row-gap: 8px;
-  padding: 0;
-  overflow: hidden;
-}
 .entry-photo {
   width: 100%;
   background: var(--mist);
   overflow: hidden;
-}
-.entry-cover-photo {
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-.entry-photo.photo-collage {
-  display: grid;
-  grid-template-columns: 3fr 2fr;
-  gap: 3px;
-}
-.entry-other-photos {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(0, 1fr);
-  gap: 3px;
-  min-width: 0;
-  min-height: 0;
-}
-.entry-other-photos:has(> .entry-small-photo:only-child) {
-  grid-template-columns: 1fr;
-}
-.entry-other-photos.many-photos {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.entry-small-photo {
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--mist);
 }
 .entry-photo :deep(.entry-thumb) {
   display: block;
@@ -981,14 +856,6 @@ function entryOn(day: Date) {
   font-size: 0.8rem;
   color: var(--sub);
 }
-.entry-row.has-photo .entry-content {
-  margin-left: 14px;
-  margin-bottom: 8px;
-}
-.entry-row.has-photo > b {
-  margin-right: 14px;
-  justify-self: end;
-}
 .records-header {
   padding-bottom: 4px;
   z-index: 15;
@@ -997,10 +864,6 @@ function entryOn(day: Date) {
   padding-top: 0;
   box-shadow: none;
   background: var(--paper);
-}
-.records-settings-link,
-.records-header > .eyebrow {
-  display: none;
 }
 .records-heading h1 {
   font-family: Georgia, 'Yu Mincho', serif;
@@ -1083,16 +946,10 @@ function entryOn(day: Date) {
   background: var(--forest);
   border: 2px solid var(--paper);
 }
-.records-page .entry-content,
-.records-page .entry-row.has-photo .entry-content {
+.records-page .entry-content {
   margin: 0;
   grid-column: 1;
   grid-row: 1;
-}
-.records-page .entry-content > small,
-.records-page .entry-icon,
-.records-page .entry-row > b {
-  display: none;
 }
 .records-page .entry-row h3 {
   font-family: 'Yu Mincho', 'Hiragino Mincho ProN', serif;
@@ -1133,16 +990,12 @@ function entryOn(day: Date) {
   border-radius: 14px;
   display: block;
 }
-.records-page .entry-other-photos {
-  display: none;
-}
 .records-page .entry-photo :deep(.entry-thumb) {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.records-page .entry-environment,
-.records-page .entry-row.has-photo .entry-environment {
+.records-page .entry-environment {
   grid-column: 1 / -1;
   margin: 0;
   padding-top: 0;

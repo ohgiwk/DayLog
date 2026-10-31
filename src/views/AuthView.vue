@@ -169,8 +169,7 @@ async function resetPassword() {
   padding: 52px var(--page-right) max(28px, env(safe-area-inset-bottom, 0px))
     var(--page-left);
   background-image:
-    linear-gradient(180deg, transparent, var(--paper) 420px),
-    var(--gradient-hero);
+    linear-gradient(180deg, transparent, var(--paper) 420px), var(--paper);
   background-size: 100% 480px;
   background-repeat: no-repeat;
 }

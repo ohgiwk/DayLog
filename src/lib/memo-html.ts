@@ -21,8 +21,7 @@ export function cleanMemoHtml(html: string): string {
   return sanitizeHtml(html, { tags: memoTags, inlineImages: true })
 }
 
-// Separate legacy inline images without changing the stored document until save.
-export function splitMemoContent(html: string, attachments: string[] = []) {
+function parseMemoContent(html: string, attachments: string[] = []) {
   const container = document.createElement('div')
   container.innerHTML = cleanMemoHtml(html)
   const images = attachments.filter(isInlineImage)
@@ -30,12 +29,16 @@ export function splitMemoContent(html: string, attachments: string[] = []) {
     images.push(img.getAttribute('src')!)
     img.remove()
   })
+  return { container, images }
+}
+
+// Separate legacy inline images without changing the stored document until save.
+export function splitMemoContent(html: string, attachments: string[] = []) {
+  const { container, images } = parseMemoContent(html, attachments)
   return { html: container.innerHTML, images }
 }
 
-export function memoPreviewText(html: string): string {
-  const container = document.createElement('div')
-  container.innerHTML = cleanMemoHtml(html)
+function previewText(container: HTMLElement): string {
   container
     .querySelectorAll('br')
     .forEach((lineBreak) => lineBreak.replaceWith(' '))
@@ -43,4 +46,9 @@ export function memoPreviewText(html: string): string {
     .querySelectorAll('p, div, h2, h3, li, blockquote')
     .forEach((block) => block.append(' '))
   return (container.textContent || '').replace(/\s+/g, ' ').trim()
+}
+
+export function memoPreview(html: string, attachments: string[] = []) {
+  const { container, images } = parseMemoContent(html, attachments)
+  return { text: previewText(container), image: images[0] }
 }

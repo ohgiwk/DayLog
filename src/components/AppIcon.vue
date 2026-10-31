@@ -24,10 +24,6 @@ const paths: Record<string, string> = {
   tag: 'M3 3h8l10 10-8 8L3 11V3ZM7 7h.01',
   'calendar-month':
     'M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM7 2v4M17 2v4M3 10h18M7 14h.01M12 14h.01M17 14h.01M7 18h.01M12 18h.01M17 18h.01',
-  'calendar-week':
-    'M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM7 2v4M17 2v4M3 10h18M7 15h10',
-  'calendar-hidden':
-    'M9 4h10a2 2 0 0 1 2 2v10M17 2v4M3 10h7M3 7v12a2 2 0 0 0 2 2h12M3 3l18 18',
   logout: 'M9 3H4a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h5m6-16 7 7-7 7m-9-7h16',
   refresh:
     'M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 2M4 17l2 2a8 8 0 0 0 13-3',
@@ -58,10 +54,7 @@ const paths: Record<string, string> = {
   check: 'm5 12 4 4L19 6',
   home: 'm3 10 9-7 9 7v10H3V10m6 10v-7h6v7',
   records: 'M5 3h14v18H5V3m3 5h8M8 12h8M8 16h8',
-  'notebook-pen':
-    'M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6M7 3v18M10 16l1-4L19 4a2.1 2.1 0 0 1 3 3l-8 8-4 1ZM17 6l3 3',
   note: 'M5 3h10l4 4v14H5V3m10 0v5h4M8 12h8M8 16h6',
-  chart: 'M12 3v9h9M9 3.5a9 9 0 1 0 11.5 11.5',
   settings:
     'm9 3-.5 3-2 1-2.8-1-2 3.5L4 11v2l-2.3 1.5 2 3.5 2.8-1 2 1 .5 3h6l.5-3 2-1 2.8 1 2-3.5L20 13v-2l2.3-1.5-2-3.5-2.8 1-2-1L15 3H9m6 9a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
   'folder-plus': 'M3 6h7l2 3h9v11H3V6Zm9 6v5m-2.5-2.5h5',

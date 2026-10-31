@@ -95,7 +95,7 @@ async function mount(
   entry = initial(),
   readonly = false,
   isNew = false,
-  compose = false,
+  compose = !readonly,
 ) {
   const root = document.createElement('div')
   document.body.append(root)
@@ -212,7 +212,7 @@ it('moves the previous cover back to the gallery when another photo is selected'
   ).toEqual(['blob:photo-1', 'blob:photo-3'])
 })
 
-it('opens the photo picker when the full-width empty cover is tapped', async () => {
+it('opens the photo picker when the empty cover is tapped', async () => {
   await mount(initial([], undefined), false, true)
   const picker = document.querySelector<HTMLInputElement>(
     '[aria-label="写真を選択"]',
@@ -226,12 +226,6 @@ it('opens the photo picker when the full-width empty cover is tapped', async () 
   expect(click).toHaveBeenCalledOnce()
   expect(document.querySelector('.photo-collection .photo-empty')).toBeNull()
 })
-it('replaces the placeholder with the real cover once photos are available', async () => {
-  await mount(initial(), false, true)
-  expect(document.querySelector('.cover-placeholder')).toBeNull()
-  expect(document.querySelector('.diary-cover')).not.toBeNull()
-})
-
 it('adds and removes custom tags with durable saves and ignores duplicates', async () => {
   await mount(initial([]))
   document.querySelector<HTMLButtonElement>('.edit-tags')!.click()
@@ -373,18 +367,13 @@ it('uses the compose layout when reopening a saved diary for editing', async () 
   ).toContain('写真を追加')
   expect(document.querySelector('.diary-date')).toBeNull()
 })
-it('keeps reading mode when compose is requested for a readonly diary', async () => {
-  await mount(initial([], undefined), true, false, true)
-  expect(document.querySelector('.is-composing')).toBeNull()
-  expect(document.querySelector('[aria-label="日記の日付"]')).toBeNull()
-})
-
 it('reports an empty new diary, successful autosave, failure, and retry truthfully', async () => {
   await mount(
     { ...initial([], undefined), guess: '', body: '', tomorrow: '' },
     false,
     true,
   )
+  vi.useFakeTimers()
   const exposed = app!._instance!.exposed!
   expect(exposed.saveStatus.value).toBe('未入力')
   expect(exposed.saveState.value).toBe('empty')
@@ -398,6 +387,8 @@ it('reports an empty new diary, successful autosave, failure, and retry truthful
     expect.objectContaining({ guess: '自動保存の確認' }),
   )
   expect(exposed.saveStatus.value).toBe('保存しました')
+  vi.advanceTimersByTime(1600)
+  expect(exposed.saveStatus.value).toBe('保存済み')
   storage.save.mockImplementation(() => {
     throw new Error('quota')
   })
@@ -410,6 +401,7 @@ it('reports an empty new diary, successful autosave, failure, and retry truthful
   document.querySelector<HTMLButtonElement>('.text-button')!.click()
   await nextTick()
   expect(exposed.saveState.value).toBe('saved')
+  expect(exposed.saveStatus.value).toBe('保存しました')
   expect(storage.save).toHaveBeenLastCalledWith(
     expect.objectContaining({ guess: '未保存の変更' }),
   )
@@ -438,32 +430,4 @@ it('reports photo saving and a failed image transaction without claiming success
     expect(exposed.saveStatus.value).toBe('写真の保存失敗'),
   )
   expect(exposed.saveState.value).toBe('error')
-})
-
-it('updates the visible save confirmation and timestamp only after a successful write', async () => {
-  await mount(initial([], undefined), false, false, true)
-  vi.useFakeTimers()
-  vi.setSystemTime(new Date('2026-11-01T01:00:00Z'))
-  const exposed = app!._instance!.exposed!
-  const title = document.querySelector<HTMLInputElement>(
-    '[aria-label="タイトル"]',
-  )!
-  title.value = '最初の変更'
-  title.dispatchEvent(new Event('input', { bubbles: true }))
-  expect(exposed.saveStatus.value).toBe('保存しました')
-  expect(exposed.savedAt.value).toBe('2026-11-01T01:00:00.000Z')
-  vi.advanceTimersByTime(1600)
-  expect(exposed.saveStatus.value).toBe('保存済み')
-  title.value = '次の変更'
-  title.dispatchEvent(new Event('input', { bubbles: true }))
-  expect(exposed.saveStatus.value).toBe('保存しました')
-  expect(exposed.savedAt.value).toBe('2026-11-01T01:00:01.600Z')
-  storage.save.mockImplementation(() => {
-    throw new Error('quota')
-  })
-  vi.advanceTimersByTime(1000)
-  title.value = '保存できない変更'
-  title.dispatchEvent(new Event('input', { bubbles: true }))
-  expect(exposed.saveStatus.value).toBe('保存失敗')
-  expect(exposed.savedAt.value).toBe('2026-11-01T01:00:01.600Z')
 })

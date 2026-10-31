@@ -145,7 +145,6 @@ let unsaved = false,
   batchingChanges = false;
 const persisted = ref(!props.isNew);
 const saving = ref(false);
-const savedAt = ref(props.isNew ? '' : props.initial.updatedAt);
 const recentlySaved = ref(false);
 let saveFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
 const photoSaveFailed = ref(false);
@@ -169,7 +168,6 @@ function save() {
       updatedAt: timestamp,
     });
     persisted.value = true;
-    savedAt.value = timestamp;
     recentlySaved.value = true;
     clearTimeout(saveFeedbackTimer);
     saveFeedbackTimer = setTimeout(() => {
@@ -353,7 +351,6 @@ const saveStatus = computed(() => {
     : '未入力';
 });
 defineExpose({
-  savedAt,
   saveState,
   saveStatus,
   removeDiary,
@@ -390,7 +387,6 @@ onBeforeUnmount(() => {
   <div
     class="diary-editor"
     :class="{
-      'is-new': isNew,
       'is-composing': composing,
       'is-reading-diary': readonly,
     }"
@@ -877,16 +873,6 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
   line-height: 1.8;
 }
-.editor-status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.editor-status p {
-  font-size: 0.75rem;
-  color: var(--sub);
-}
 .diary-editor > label {
   display: flex;
   flex-direction: column;
@@ -899,7 +885,6 @@ onBeforeUnmount(() => {
   font-weight: 400;
   color: var(--sub);
 }
-.diary-editor textarea,
 .diary-editor > label input {
   width: 100%;
   padding: 15px;
@@ -908,24 +893,12 @@ onBeforeUnmount(() => {
   background: white;
   color: var(--text);
 }
-.diary-editor textarea:focus-visible,
 .diary-editor input:focus-visible {
   outline: 2px solid var(--sage);
-}
-.photo-heading {
-  font-size: 0.8rem;
-  margin-bottom: 12px;
-}
-.photo-actions {
-  margin-top: 12px;
 }
 .diary-editor button:disabled {
   opacity: 0.5;
   cursor: wait;
-}
-.diary-editor textarea {
-  min-height: 260px;
-  line-height: 1.8;
 }
 .diary-photos {
   margin: 0 0 20px;
@@ -1041,8 +1014,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 .diary-editor > label,
-.body-heading,
-.photo-heading {
+.body-heading {
   color: var(--sub);
 }
 .field-heading {
@@ -1056,38 +1028,6 @@ onBeforeUnmount(() => {
   padding: 14px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.55);
-}
-.collection-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.collection-eyebrow {
-  font-size: 0.58rem;
-  letter-spacing: 0.18em;
-  color: var(--sub);
-}
-.collection-heading h2 {
-  margin: 5px 0 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-.collection-heading small {
-  margin-left: 6px;
-  font-size: 0.7rem;
-  font-weight: 400;
-  color: var(--sub);
-}
-.photo-limit {
-  font-size: 0.65rem;
-  color: var(--sub);
-}
-.collection-help {
-  font-size: 0.7rem;
-  line-height: 1.8;
-  color: var(--sub);
-  margin: 12px 0 16px;
 }
 .photo-grid {
   display: grid;

@@ -147,8 +147,6 @@ textarea,
   user-select: text;
 }
 
-/* The new diary cover, including its empty placeholder, reaches behind the status bar. */
-
 /* Suppress iOS long-press link previews and callouts on app controls. */
 button,
 a {

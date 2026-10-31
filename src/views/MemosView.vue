@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ComposePlusIcon from '../components/ComposePlusIcon.vue';
+import ComposeAction from '../components/ComposeAction.vue';
 import { createDialogMotion } from '../lib/dialog-motion';
 import AppNotice from '../components/AppNotice.vue';
 import { registerUpdatePreparation } from '../lib/update-preparation';
@@ -26,7 +26,7 @@ import {
   type MemoLibrary,
   type Memo,
 } from '../lib/memo-repository';
-import { memoPreviewText, splitMemoContent } from '../lib/memo-html';
+import { memoPreview, splitMemoContent } from '../lib/memo-html';
 import { compressImage } from '../lib/image-repository';
 const formatGroups: {
   label: string;
@@ -139,9 +139,11 @@ async function renameFolder() {
   closeFolderMenu(true);
   await showCreate('rename');
 }
+const creating = ref(false);
 const canCreate = computed(
   () =>
     !busy.value &&
+    !creating.value &&
     (createKind.value === 'note'
       ? library.value.folders.some((f) => f.id === targetFolder.value)
       : !!folderName.value.trim()),
@@ -165,24 +167,29 @@ async function closeCreate() {
 }
 async function createItem() {
   if (!canCreate.value) return;
-  if (createKind.value !== 'note') {
-    if (await saveFolder()) await closeCreate();
-    return;
+  creating.value = true;
+  try {
+    if (createKind.value !== 'note') {
+      if (await saveFolder()) await closeCreate();
+      return;
+    }
+    const note: Memo = {
+      id: crypto.randomUUID(),
+      folderId: targetFolder.value,
+      title: memoTitle.value.trim() || '無題のメモ',
+      html: '',
+      updatedAt: new Date().toISOString(),
+    };
+    const value = JSON.parse(JSON.stringify(library.value)) as MemoLibrary;
+    value.notes.push(note);
+    if (!(await commit(value))) return;
+    folderId.value = note.folderId;
+    await closeCreate();
+    await openNote(note);
+    editor.value?.focus();
+  } finally {
+    creating.value = false;
   }
-  const note: Memo = {
-    id: crypto.randomUUID(),
-    folderId: targetFolder.value,
-    title: memoTitle.value.trim() || '無題のメモ',
-    html: '',
-    updatedAt: new Date().toISOString(),
-  };
-  const value = JSON.parse(JSON.stringify(library.value)) as MemoLibrary;
-  value.notes.push(note);
-  if (!(await commit(value))) return;
-  folderId.value = note.folderId;
-  await closeCreate();
-  await openNote(note);
-  editor.value?.focus();
 }
 const folder = computed(() =>
   library.value.folders.find((f) => f.id === folderId.value),
@@ -192,6 +199,24 @@ const notes = computed(() =>
     .filter((n) => !folderId.value || n.folderId === folderId.value)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
 );
+const memoCards = computed(() => {
+  const folders = new Map(
+    library.value.folders.map((folder) => [folder.id, folder.name]),
+  );
+  return notes.value.map((note) => {
+    const preview = memoPreview(note.html, note.images);
+    return {
+      note,
+      image: preview.image,
+      excerpt: preview.text,
+      folderName: folders.get(note.folderId),
+      dateLabel: new Date(note.updatedAt).toLocaleDateString('ja-JP', {
+        month: 'long',
+        day: 'numeric',
+      }),
+    };
+  });
+});
 let selection: Range | null = null;
 async function reloadLibrary() {
   const sequence = ++loadSequence;
@@ -481,7 +506,7 @@ onBeforeRouteLeave(() => !busy.value && discard());
 <template>
   <div class="page memos-page">
     <header class="page-header sticky-page-header"
-      ><p class="eyebrow">MY NOTEBOOK</p><h1>メモ</h1
+      ><h1>メモ</h1
       ><button
         v-if="!draft"
         type="button"
@@ -491,8 +516,7 @@ onBeforeRouteLeave(() => !busy.value && discard());
         :disabled="busy || loading || loadFailed"
         @click="showCreate('folder')"
         ><AppIcon name="folder-plus" /></button
-      ><p>覚えておきたいこと、心に残ったこと。</p></header
-    >
+    ></header>
     <AppNotice v-if="loading">読み込み中…</AppNotice>
     <AppNotice v-if="error && !dialogOpen" error>{{ error }}</AppNotice>
     <template v-if="!loading && !loadFailed">
@@ -766,41 +790,38 @@ onBeforeRouteLeave(() => !busy.value && discard());
         >
         <div class="memo-list">
           <button
-            v-for="note in notes"
+            v-for="{
+              note,
+              image,
+              excerpt,
+              folderName: name,
+              dateLabel,
+            } in memoCards"
             :key="note.id"
             class="soft-card memo-row"
             :disabled="busy"
             @click="openNote(note)"
           >
             <img
-              v-if="splitMemoContent(note.html, note.images).images[0]"
-              :src="splitMemoContent(note.html, note.images).images[0]"
+              v-if="image"
+              :src="image"
               alt="メモの写真"
               class="memo-card-photo"
             />
             <b>{{ note.title }}</b
-            ><p class="memo-excerpt">{{ memoPreviewText(note.html) }}</p>
+            ><p class="memo-excerpt">{{ excerpt }}</p>
             <small
-              ><span class="memo-folder-label">{{
-                library.folders.find((f) => f.id === note.folderId)?.name
-              }}</span
-              >{{
-                new Date(note.updatedAt).toLocaleDateString('ja-JP', {
-                  month: 'long',
-                  day: 'numeric',
-                })
-              }}</small
+              ><span class="memo-folder-label">{{ name }}</span
+              >{{ dateLabel }}</small
             >
           </button>
         </div>
-        <button
-          class="memo-fab"
-          type="button"
+        <ComposeAction
           aria-label="メモを書く"
           aria-haspopup="dialog"
           :disabled="busy"
           @click="showCreate('note')"
-          ><ComposePlusIcon /><span>メモを書く</span></button
+          >メモを書く</ComposeAction
         >
         <p class="memo-hint"
           >メモと写真は端末に保存され、ログイン中のアカウントで同期されます。</p
@@ -971,9 +992,6 @@ onBeforeRouteLeave(() => !busy.value && discard());
   font-size: 0.75rem;
   line-height: 1.7;
 }
-.folder-title {
-  overflow-wrap: anywhere;
-}
 .memo-editor {
   background: white;
   border: 1px solid var(--line);
@@ -1059,41 +1077,6 @@ button:disabled {
   outline: 2px solid var(--sage);
   outline-offset: 2px;
 }
-.memo-fab {
-  position: fixed;
-  z-index: 25;
-  left: auto;
-  right: max(
-    18px,
-    env(safe-area-inset-right, 0px),
-    calc((100vw - var(--app-width)) / 2 + 18px)
-  );
-  bottom: calc(var(--tabbar-height) + 14px);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  width: max-content;
-  max-width: calc(100vw - 32px);
-  min-height: 54px;
-  padding: 12px 28px;
-  border: 0;
-  border-radius: 32px;
-  background: var(--forest);
-  color: white;
-  font-size: 1rem;
-  line-height: 1.5;
-  white-space: nowrap;
-  box-shadow: 0 6px 22px #453b2514;
-  cursor: pointer;
-  transition: transform 180ms ease;
-}
-.memo-fab:active {
-  transform: scale(0.96);
-}
-.memo-fab > span {
-  flex-shrink: 0;
-}
 .memo-create-dialog {
   width: min(400px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
@@ -1143,11 +1126,6 @@ button:disabled {
   font-size: 0.82rem !important;
   border-radius: 14px;
   cursor: pointer;
-}
-.memo-fab:focus-visible,
-.memo-create-dialog :is(input, select, button):focus-visible {
-  outline: 2px solid var(--sage);
-  outline-offset: 3px;
 }
 
 .memo-toolbar {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ComposePlusIcon from './components/ComposePlusIcon.vue';
+import ComposeAction from './components/ComposeAction.vue';
 import { applySeasonTheme } from './lib/season-theme';
 import AppSplash from './components/AppSplash.vue';
 import AppIcon from './components/AppIcon.vue';
@@ -247,11 +247,10 @@ function animateTab(event: MouseEvent) {
         ><span><AppIcon name="settings" /></span><small>設定</small></RouterLink
       >
     </nav>
-    <RouterLink
+    <ComposeAction
       v-if="account.ready && account.user && route.path === '/records'"
       :to="writeTarget"
-      class="compose-fab"
-      ><ComposePlusIcon />今日を書く</RouterLink
+      >今日を書く</ComposeAction
     >
   </div>
 </template>
